@@ -202,6 +202,13 @@ ConnectionManagerUtility::MutateRequestHeadersResult ConnectionManagerUtility::m
     request_headers.setForwardedProto(config.schemeToSet().value());
   }
 
+  if (config.useTransportScheme()) {
+    const std::string& schemeToSet =
+        connection.ssl() ? Headers::get().SchemeValues.Https : Headers::get().SchemeValues.Http;
+    request_headers.setScheme(schemeToSet);
+    request_headers.setForwardedProto(schemeToSet);
+  }
+
   // If :scheme is not set, sets :scheme based on X-Forwarded-Proto if a valid scheme,
   // else encryption level.
   // X-Forwarded-Proto and :scheme may still differ if different values are sent from downstream.

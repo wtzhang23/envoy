@@ -366,6 +366,12 @@ public:
   virtual const absl::optional<std::string>& schemeToSet() const PURE;
 
   /**
+   * @return bool whether to use the upstream transport factory protocol to determine the scheme
+   * name to write into requests.
+   */
+  virtual bool useTransportScheme() const PURE;
+
+  /**
    * @return ConnectionManagerStats& the stats to write to.
    */
   virtual ConnectionManagerStats& stats() PURE;

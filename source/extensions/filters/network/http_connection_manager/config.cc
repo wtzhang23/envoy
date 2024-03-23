@@ -639,6 +639,8 @@ HttpConnectionManagerConfig::HttpConnectionManagerConfig(
     scheme_to_set_ = config.scheme_header_transformation().scheme_to_overwrite();
   }
 
+  use_transport_scheme_ = config.scheme_header_transformation().use_transport_scheme();
+
   if (!config.server_name().empty()) {
     server_name_ = config.server_name();
   } else {
