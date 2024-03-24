@@ -3,6 +3,7 @@ syntax = "proto3";
 package envoy.extensions.filters.http.router.v3;
 
 import "envoy/config/accesslog/v3/accesslog.proto";
+import "envoy/config/core/v3/protocol.proto";
 import "envoy/extensions/filters/network/http_connection_manager/v3/http_connection_manager.proto";
 
 import "google/protobuf/duration.proto";
@@ -134,4 +135,9 @@ message Router {
   // upstream HTTP filters will count as a final response if hedging is configured.
   // [#extension-category: envoy.filters.http.upstream]
   repeated network.http_connection_manager.v3.HttpFilter upstream_http_filters = 8;
+
+  // Allows for explicit transformation of the :scheme header on the request path.
+  // If not set, the scheme set by preceding filters or Envoy's default 
+  // :ref:`scheme  <config_http_conn_man_headers_scheme>` handling applies.
+  config.core.v3.SchemeHeaderTransformation scheme_header_transformation = 10;
 }

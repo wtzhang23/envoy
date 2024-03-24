@@ -63,6 +63,7 @@ public:
   RouterTestBase(bool start_child_span, bool suppress_envoy_headers,
                  bool suppress_grpc_request_failure_code_stats,
                  bool flush_upstream_log_on_upstream_stream,
+                 absl::optional<std::string> scheme_to_overwrite, bool use_transport_scheme,
                  Protobuf::RepeatedPtrField<std::string> strict_headers_to_check);
 
   void expectResponseTimerCreate();

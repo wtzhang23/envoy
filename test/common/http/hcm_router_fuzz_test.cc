@@ -445,8 +445,10 @@ public:
             false /*start_child_span*/, true /*suppress_envoy_headers*/,
             false /*respect_expected_rq_timeout*/,
             true /*suppress_grpc_request_failure_code_stats*/,
-            false /*flush_upstream_log_on_upstream_stream*/, std::move(strict_headers_to_check),
-            time_system_.timeSystem(), http_context_, router_context_) {
+            false /*flush_upstream_log_on_upstream_stream*/, absl::nullopt, /*scheme_to_overwrite*/
+            false,                                                          /*use_transport_scheme*/
+            std::move(strict_headers_to_check), time_system_.timeSystem(), http_context_,
+            router_context_) {
     cluster_manager_.createDefaultClusters(*this);
     // Install the `RouterFuzzFilter` here
     ON_CALL(filter_factory_, createFilterChain(_))

@@ -79,6 +79,11 @@ FilterConfig::FilterConfig(Stats::StatName stat_prefix,
           config.has_upstream_log_options()
               ? config.upstream_log_options().flush_upstream_log_on_upstream_stream()
               : false,
+          config.scheme_header_transformation().scheme_to_overwrite().empty()
+              ? absl::nullopt
+              : absl::optional<std::string>(
+                    config.scheme_header_transformation().scheme_to_overwrite()),
+          config.scheme_header_transformation().use_transport_scheme(),
           config.strict_check_headers(), context.serverFactoryContext().api().timeSource(),
           context.serverFactoryContext().httpContext(),
           context.serverFactoryContext().routerContext()) {
@@ -124,7 +129,21 @@ uint64_t FilterUtility::percentageOfTimeout(const std::chrono::milliseconds resp
   return static_cast<uint64_t>(response_time.count() * TimeoutPrecisionFactor / timeout.count());
 }
 
-void FilterUtility::setUpstreamScheme(Http::RequestHeaderMap& headers, bool downstream_secure) {
+void FilterUtility::setUpstreamScheme(Http::RequestHeaderMap& headers,
+                                      absl::optional<bool> upstream_secure,
+                                      const absl::optional<std::string>& scheme_to_set,
+                                      bool downstream_secure) {
+  if (upstream_secure.has_value()) {
+    headers.setReferenceScheme(upstream_secure.value() ? Http::Headers::get().SchemeValues.Https
+                                                       : Http::Headers::get().SchemeValues.Http);
+    return;
+  }
+
+  if (scheme_to_set.has_value()) {
+    headers.setScheme(scheme_to_set.value());
+    return;
+  }
+
   if (Http::Utility::schemeIsValid(headers.getSchemeValue())) {
     return;
   }
@@ -705,8 +724,14 @@ Http::FilterHeadersStatus Filter::decodeHeaders(Http::RequestHeaderMap& headers,
 
   route_entry_->finalizeRequestHeaders(headers, callbacks_->streamInfo(),
                                        !config_.suppress_envoy_headers_);
+
   FilterUtility::setUpstreamScheme(
-      headers, callbacks_->streamInfo().downstreamAddressProvider().sslConnection() != nullptr);
+      headers,
+      config_.use_transport_scheme_
+          ? absl::optional<bool>(host->transportSocketFactory().implementsSecureTransport())
+          : absl::nullopt,
+      config_.scheme_to_set_,
+      callbacks_->streamInfo().downstreamAddressProvider().sslConnection() != nullptr);
 
   // Ensure an http transport scheme is selected before continuing with decoding.
   ASSERT(headers.Scheme());
