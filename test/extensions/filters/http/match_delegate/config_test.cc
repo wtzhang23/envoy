@@ -325,6 +325,7 @@ TEST(DelegatingFilterTest, MatchTreeSkipActionDecodingHeaders) {
   std::shared_ptr<Envoy::Http::MockStreamDecoderFilter> decoder_filter(
       new Envoy::Http::MockStreamDecoderFilter());
   NiceMock<Envoy::Http::MockStreamDecoderFilterCallbacks> callbacks;
+  NiceMock<Random::MockRandomGenerator> random;
 
   EXPECT_CALL(*decoder_filter, setDecoderFilterCallbacks(_));
   EXPECT_CALL(*decoder_filter, decodeHeaders(_, _)).Times(0);
@@ -337,7 +338,7 @@ TEST(DelegatingFilterTest, MatchTreeSkipActionDecodingHeaders) {
       createMatchingTree<Envoy::Http::Matching::HttpRequestHeadersDataInput, SkipAction>(
           "match-header", "match");
   auto delegating_filter =
-      std::make_shared<DelegatingStreamFilter>(match_tree, decoder_filter, nullptr);
+      std::make_shared<DelegatingStreamFilter>(match_tree, decoder_filter, nullptr, random);
 
   Envoy::Http::RequestHeaderMapPtr request_headers{
       new Envoy::Http::TestRequestHeaderMapImpl{{":authority", "host"},
@@ -381,6 +382,7 @@ TEST(DelegatingFilterTest, WithNoMatcher) {
   std::shared_ptr<Envoy::Http::MockStreamDecoderFilter> decoder_filter(
       new Envoy::Http::MockStreamDecoderFilter());
   NiceMock<Envoy::Http::MockStreamDecoderFilterCallbacks> callbacks;
+  NiceMock<Random::MockRandomGenerator> random;
 
   EXPECT_CALL(*decoder_filter, setDecoderFilterCallbacks(_));
   EXPECT_CALL(*decoder_filter, decodeHeaders(_, _)).Times(0);
@@ -393,7 +395,7 @@ TEST(DelegatingFilterTest, WithNoMatcher) {
       createMatchingTree<Envoy::Http::Matching::HttpRequestQueryParamsDataInput, SkipAction>(
           "match_query", "match");
   auto delegating_filter =
-      std::make_shared<DelegatingStreamFilter>(nullptr, decoder_filter, nullptr);
+      std::make_shared<DelegatingStreamFilter>(nullptr, decoder_filter, nullptr, random);
 
   Envoy::Http::RequestHeaderMapPtr request_headers{new Envoy::Http::TestRequestHeaderMapImpl{
       {":authority", "host"}, {":path", "/"}, {":method", "GET"}, {"match-header", "not_match"}}};
@@ -410,6 +412,7 @@ TEST(DelegatingFilterTest, MatchTreeOnNoMatchSkipActionDecodingHeaders) {
   std::shared_ptr<Envoy::Http::MockStreamDecoderFilter> decoder_filter(
       new Envoy::Http::MockStreamDecoderFilter());
   NiceMock<Envoy::Http::MockStreamDecoderFilterCallbacks> callbacks;
+  NiceMock<Random::MockRandomGenerator> random;
 
   EXPECT_CALL(*decoder_filter, setDecoderFilterCallbacks(_));
   EXPECT_CALL(*decoder_filter, decodeHeaders(_, _)).Times(0);
@@ -422,7 +425,7 @@ TEST(DelegatingFilterTest, MatchTreeOnNoMatchSkipActionDecodingHeaders) {
       createMatchTreeWithOnNoMatch<Envoy::Http::Matching::HttpRequestHeadersDataInput, SkipAction>(
           "match-header", "match");
   auto delegating_filter =
-      std::make_shared<DelegatingStreamFilter>(match_tree, decoder_filter, nullptr);
+      std::make_shared<DelegatingStreamFilter>(match_tree, decoder_filter, nullptr, random);
 
   Envoy::Http::RequestHeaderMapPtr request_headers{
       new Envoy::Http::TestRequestHeaderMapImpl{{":authority", "host"},
@@ -451,6 +454,7 @@ TEST(DelegatingFilterTest, MatchTreeQueryParamsSkipActionDecodingHeaders) {
   std::shared_ptr<Envoy::Http::MockStreamDecoderFilter> decoder_filter(
       new Envoy::Http::MockStreamDecoderFilter());
   NiceMock<Envoy::Http::MockStreamDecoderFilterCallbacks> callbacks;
+  NiceMock<Random::MockRandomGenerator> random;
 
   EXPECT_CALL(*decoder_filter, setDecoderFilterCallbacks(_));
   EXPECT_CALL(*decoder_filter, decodeHeaders(_, _)).Times(0);
@@ -463,7 +467,7 @@ TEST(DelegatingFilterTest, MatchTreeQueryParamsSkipActionDecodingHeaders) {
       createMatchingTree<Envoy::Http::Matching::HttpRequestQueryParamsDataInput, SkipAction>(
           "match_query", "match");
   auto delegating_filter =
-      std::make_shared<DelegatingStreamFilter>(match_tree, decoder_filter, nullptr);
+      std::make_shared<DelegatingStreamFilter>(match_tree, decoder_filter, nullptr, random);
 
   Envoy::Http::RequestHeaderMapPtr request_headers{new Envoy::Http::TestRequestHeaderMapImpl{
       {":authority", "host"}, {":path", "/?match_query=match"}, {":method", "GET"}}};
@@ -488,6 +492,7 @@ TEST(DelegatingFilterTest, MatchTreeSkipActionEncodingHeaders) {
   std::shared_ptr<Envoy::Http::MockStreamEncoderFilter> encoder_filter(
       new Envoy::Http::MockStreamEncoderFilter());
   NiceMock<Envoy::Http::MockStreamEncoderFilterCallbacks> callbacks;
+  NiceMock<Random::MockRandomGenerator> random;
 
   EXPECT_CALL(*encoder_filter, setEncoderFilterCallbacks(_));
   EXPECT_CALL(*encoder_filter, encodeHeaders(_, _)).Times(0);
@@ -501,7 +506,7 @@ TEST(DelegatingFilterTest, MatchTreeSkipActionEncodingHeaders) {
       createMatchingTree<Envoy::Http::Matching::HttpResponseHeadersDataInput, SkipAction>(
           "match-header", "match");
   auto delegating_filter =
-      std::make_shared<DelegatingStreamFilter>(match_tree, nullptr, encoder_filter);
+      std::make_shared<DelegatingStreamFilter>(match_tree, nullptr, encoder_filter, random);
 
   Envoy::Http::ResponseHeaderMapPtr response_headers{new Envoy::Http::TestResponseHeaderMapImpl{
       {":status", "200"}, {"match-header", "match"}, {"content-type", "application/grpc"}}};
@@ -528,10 +533,12 @@ TEST(DelegatingFilterTest, MatchTreeSkipActionRequestAndResponseHeaders) {
   std::shared_ptr<Envoy::Http::MockStreamFilter> filter(new Envoy::Http::MockStreamFilter());
   NiceMock<Envoy::Http::MockStreamDecoderFilterCallbacks> decoder_callbacks;
   NiceMock<Envoy::Http::MockStreamEncoderFilterCallbacks> encoder_callbacks;
+  NiceMock<Random::MockRandomGenerator> random;
 
   auto match_tree = createRequestAndResponseMatchingTree();
 
-  auto delegating_filter = std::make_shared<DelegatingStreamFilter>(match_tree, filter, filter);
+  auto delegating_filter =
+      std::make_shared<DelegatingStreamFilter>(match_tree, filter, filter, random);
 
   EXPECT_CALL(*filter, setDecoderFilterCallbacks(_));
   EXPECT_CALL(*filter, setEncoderFilterCallbacks(_));
@@ -590,6 +597,7 @@ TEST(DelegatingFilterTest, MatchTreeFilterActionDecodingHeaders) {
   std::shared_ptr<Envoy::Http::MockStreamDecoderFilter> decoder_filter(
       new Envoy::Http::MockStreamDecoderFilter());
   NiceMock<Envoy::Http::MockStreamDecoderFilterCallbacks> callbacks;
+  NiceMock<Random::MockRandomGenerator> random;
 
   EXPECT_CALL(*decoder_filter, setDecoderFilterCallbacks(_));
   EXPECT_CALL(*decoder_filter, onMatchCallback(_));
@@ -600,7 +608,7 @@ TEST(DelegatingFilterTest, MatchTreeFilterActionDecodingHeaders) {
       createMatchingTree<Envoy::Http::Matching::HttpRequestHeadersDataInput, TestAction>(
           "match-header", "match");
   auto delegating_filter =
-      std::make_shared<DelegatingStreamFilter>(match_tree, decoder_filter, nullptr);
+      std::make_shared<DelegatingStreamFilter>(match_tree, decoder_filter, nullptr, random);
 
   Envoy::Http::RequestHeaderMapPtr request_headers{
       new Envoy::Http::TestRequestHeaderMapImpl{{":authority", "host"},
@@ -621,6 +629,7 @@ TEST(DelegatingFilterTest, MatchTreeFilterActionDecodingTrailers) {
   std::shared_ptr<Envoy::Http::MockStreamDecoderFilter> decoder_filter(
       new Envoy::Http::MockStreamDecoderFilter());
   NiceMock<Envoy::Http::MockStreamDecoderFilterCallbacks> callbacks;
+  NiceMock<Random::MockRandomGenerator> random;
 
   EXPECT_CALL(*decoder_filter, setDecoderFilterCallbacks(_));
   EXPECT_CALL(*decoder_filter, decodeHeaders(_, _));
@@ -632,7 +641,7 @@ TEST(DelegatingFilterTest, MatchTreeFilterActionDecodingTrailers) {
       createMatchingTree<Envoy::Http::Matching::HttpRequestTrailersDataInput, TestAction>(
           "match-trailer", "match");
   auto delegating_filter =
-      std::make_shared<DelegatingStreamFilter>(match_tree, decoder_filter, nullptr);
+      std::make_shared<DelegatingStreamFilter>(match_tree, decoder_filter, nullptr, random);
 
   Envoy::Http::RequestHeaderMapPtr request_headers{
       new Envoy::Http::TestRequestHeaderMapImpl{{":authority", "host"},
@@ -660,12 +669,14 @@ TEST(DelegatingFilterTest, MatchTreeFilterActionEncodingTrailers) {
   std::shared_ptr<Envoy::Http::MockStreamFilter> filter(new Envoy::Http::MockStreamFilter());
   NiceMock<Envoy::Http::MockStreamDecoderFilterCallbacks> decoder_callbacks;
   NiceMock<Envoy::Http::MockStreamEncoderFilterCallbacks> encoder_callbacks;
+  NiceMock<Random::MockRandomGenerator> random;
 
   auto match_tree =
       createMatchingTree<Envoy::Http::Matching::HttpResponseTrailersDataInput, TestAction>(
           "match-trailer", "match");
 
-  auto delegating_filter = std::make_shared<DelegatingStreamFilter>(match_tree, filter, filter);
+  auto delegating_filter =
+      std::make_shared<DelegatingStreamFilter>(match_tree, filter, filter, random);
 
   EXPECT_CALL(*filter, setDecoderFilterCallbacks(_));
   EXPECT_CALL(*filter, setEncoderFilterCallbacks(_));

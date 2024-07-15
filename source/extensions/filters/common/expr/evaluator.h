@@ -1,5 +1,6 @@
 #pragma once
 
+#include "envoy/common/random_generator.h"
 #include "envoy/stream_info/stream_info.h"
 
 #include "source/common/http/headers.h"
@@ -41,19 +42,19 @@ public:
                    const StreamInfo::StreamInfo& info,
                    const ::Envoy::Http::RequestHeaderMap* request_headers,
                    const ::Envoy::Http::ResponseHeaderMap* response_headers,
-                   const ::Envoy::Http::ResponseTrailerMap* response_trailers)
+                   const ::Envoy::Http::ResponseTrailerMap* response_trailers,
+                   Random::RandomGenerator& random)
       : local_info_(local_info), activation_info_(&info),
         activation_request_headers_(request_headers),
         activation_response_headers_(response_headers),
-        activation_response_trailers_(response_trailers) {}
+        activation_response_trailers_(response_trailers),
+        random_function_(std::make_unique<RandomCelFunction>(random)) {}
 
-  StreamActivation() = default;
+  StreamActivation() : random_function_(std::make_unique<RandomCelFunction>()){};
 
   absl::optional<CelValue> FindValue(absl::string_view name, Protobuf::Arena* arena) const override;
   std::vector<const google::api::expr::runtime::CelFunction*>
-  FindFunctionOverloads(absl::string_view) const override {
-    return {};
-  }
+      FindFunctionOverloads(absl::string_view) const override;
 
 protected:
   void resetActivation() const;
@@ -62,6 +63,7 @@ protected:
   mutable const ::Envoy::Http::RequestHeaderMap* activation_request_headers_{nullptr};
   mutable const ::Envoy::Http::ResponseHeaderMap* activation_response_headers_{nullptr};
   mutable const ::Envoy::Http::ResponseTrailerMap* activation_response_trailers_{nullptr};
+  RandomCelFunctionPtr random_function_;
 };
 
 // Creates an activation providing the common context attributes.
@@ -70,7 +72,8 @@ ActivationPtr createActivation(const ::Envoy::LocalInfo::LocalInfo* local_info,
                                const StreamInfo::StreamInfo& info,
                                const ::Envoy::Http::RequestHeaderMap* request_headers,
                                const ::Envoy::Http::ResponseHeaderMap* response_headers,
-                               const ::Envoy::Http::ResponseTrailerMap* response_trailers);
+                               const ::Envoy::Http::ResponseTrailerMap* response_trailers,
+                               Random::RandomGenerator& random);
 
 // Shared expression builder instance.
 class BuilderInstance : public Singleton::Instance {
@@ -103,12 +106,13 @@ absl::optional<CelValue> evaluate(const Expression& expr, Protobuf::Arena& arena
                                   const StreamInfo::StreamInfo& info,
                                   const ::Envoy::Http::RequestHeaderMap* request_headers,
                                   const ::Envoy::Http::ResponseHeaderMap* response_headers,
-                                  const ::Envoy::Http::ResponseTrailerMap* response_trailers);
+                                  const ::Envoy::Http::ResponseTrailerMap* response_trailers,
+                                  Random::RandomGenerator& random);
 
 // Evaluates an expression and returns true if the expression evaluates to "true".
 // Returns false if the expression fails to evaluate.
 bool matches(const Expression& expr, const StreamInfo::StreamInfo& info,
-             const ::Envoy::Http::RequestHeaderMap& headers);
+             const ::Envoy::Http::RequestHeaderMap& headers, Random::RandomGenerator& random);
 
 // Returns a string for a CelValue.
 std::string print(CelValue value);

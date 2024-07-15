@@ -2,6 +2,7 @@
 
 #include "envoy/http/filter.h"
 
+#include "source/common/common/random_generator.h"
 #include "source/common/http/matching/data_impl.h"
 #include "source/common/http/matching/inputs.h"
 #include "source/common/network/address_impl.h"
@@ -34,7 +35,8 @@ StreamInfo::StreamInfoImpl createStreamInfo() {
 
 TEST(MatchingData, HttpRequestHeadersDataInput) {
   HttpRequestHeadersDataInput input("header");
-  HttpMatchingDataImpl data(createStreamInfo());
+  Random::RandomGeneratorImpl random;
+  HttpMatchingDataImpl data(createStreamInfo(), random);
 
   {
     TestRequestHeaderMapImpl request_headers({{"header", "bar"}});
@@ -55,7 +57,8 @@ TEST(MatchingData, HttpRequestHeadersDataInput) {
 
 TEST(MatchingData, HttpRequestTrailersDataInput) {
   HttpRequestTrailersDataInput input("header");
-  HttpMatchingDataImpl data(createStreamInfo());
+  Random::RandomGeneratorImpl random;
+  HttpMatchingDataImpl data(createStreamInfo(), random);
 
   {
     TestRequestTrailerMapImpl request_trailers({{"header", "bar"}});
@@ -79,7 +82,8 @@ TEST(MatchingData, HttpResponseHeadersDataInput) {
   Network::ConnectionInfoSetterImpl connection_info_provider(
       std::make_shared<Network::Address::Ipv4Instance>(80),
       std::make_shared<Network::Address::Ipv4Instance>(80));
-  HttpMatchingDataImpl data(createStreamInfo());
+  Random::RandomGeneratorImpl random;
+  HttpMatchingDataImpl data(createStreamInfo(), random);
 
   {
     TestResponseHeaderMapImpl response_headers({{"header", "bar"}});
@@ -103,7 +107,8 @@ TEST(MatchingData, HttpResponseTrailersDataInput) {
   Network::ConnectionInfoSetterImpl connection_info_provider(
       std::make_shared<Network::Address::Ipv4Instance>(80),
       std::make_shared<Network::Address::Ipv4Instance>(80));
-  HttpMatchingDataImpl data(createStreamInfo());
+  Random::RandomGeneratorImpl random;
+  HttpMatchingDataImpl data(createStreamInfo(), random);
 
   {
     TestResponseTrailerMapImpl response_trailers({{"header", "bar"}});
@@ -126,7 +131,8 @@ TEST(MatchingData, HttpRequestQueryParamsDataInput) {
   Network::ConnectionInfoSetterImpl connection_info_provider(
       std::make_shared<Network::Address::Ipv4Instance>(80),
       std::make_shared<Network::Address::Ipv4Instance>(80));
-  HttpMatchingDataImpl data(createStreamInfo());
+  Random::RandomGeneratorImpl random;
+  HttpMatchingDataImpl data(createStreamInfo(), random);
 
   {
     HttpRequestQueryParamsDataInput input("arg");
@@ -179,7 +185,8 @@ TEST(MatchingData, HttpRequestQueryParamsDataInput) {
 
 TEST(MatchingData, FilterStateInput) {
   StreamInfo::StreamInfoImpl stream_info(createStreamInfo());
-  HttpMatchingDataImpl data(stream_info);
+  Random::RandomGeneratorImpl random;
+  HttpMatchingDataImpl data(stream_info, random);
 
   {
     Network::Matching::FilterStateInput<HttpMatchingData> input("filter_state_key");

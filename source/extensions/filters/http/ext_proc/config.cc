@@ -28,8 +28,8 @@ ExternalProcessingFilterConfig::createFilterFactoryFromProtoTyped(
     auto client = std::make_unique<ExternalProcessorClientImpl>(
         context.clusterManager().grpcAsyncClientManager(), dual_info.scope);
 
-    callbacks.addStreamFilter(Http::StreamFilterSharedPtr{
-        std::make_shared<Filter>(filter_config, std::move(client), grpc_service)});
+    callbacks.addStreamFilter(Http::StreamFilterSharedPtr{std::make_shared<Filter>(
+        filter_config, std::move(client), context.api().randomGenerator(), grpc_service)});
   };
 }
 
@@ -59,8 +59,8 @@ ExternalProcessingFilterConfig::createFilterFactoryFromProtoWithServerContextTyp
     auto client = std::make_unique<ExternalProcessorClientImpl>(
         server_context.clusterManager().grpcAsyncClientManager(), server_context.scope());
 
-    callbacks.addStreamFilter(Http::StreamFilterSharedPtr{
-        std::make_shared<Filter>(filter_config, std::move(client), grpc_service)});
+    callbacks.addStreamFilter(Http::StreamFilterSharedPtr{std::make_shared<Filter>(
+        filter_config, std::move(client), server_context.api().randomGenerator(), grpc_service)});
   };
 }
 

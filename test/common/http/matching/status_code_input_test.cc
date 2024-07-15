@@ -1,5 +1,6 @@
 #include "envoy/http/filter.h"
 
+#include "source/common/common/random_generator.h"
 #include "source/common/http/matching/data_impl.h"
 #include "source/common/http/matching/status_code_input.h"
 #include "source/common/network/address_impl.h"
@@ -32,7 +33,8 @@ TEST(MatchingData, HttpResponseStatusCodeInput) {
   Network::ConnectionInfoSetterImpl connection_info_provider(
       std::make_shared<Network::Address::Ipv4Instance>(80),
       std::make_shared<Network::Address::Ipv4Instance>(80));
-  HttpMatchingDataImpl data(createStreamInfo());
+  Random::RandomGeneratorImpl random;
+  HttpMatchingDataImpl data(createStreamInfo(), random);
 
   {
     auto result = input.get(data);
@@ -63,7 +65,8 @@ TEST(MatchingData, HttpResponseStatusCodeClassInput) {
   Network::ConnectionInfoSetterImpl connection_info_provider(
       std::make_shared<Network::Address::Ipv4Instance>(80),
       std::make_shared<Network::Address::Ipv4Instance>(80));
-  HttpMatchingDataImpl data(createStreamInfo());
+  Random::RandomGeneratorImpl random;
+  HttpMatchingDataImpl data(createStreamInfo(), random);
   {
     auto result = input.get(data);
     EXPECT_EQ(result.data_availability_,

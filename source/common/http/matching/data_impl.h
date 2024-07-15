@@ -13,8 +13,8 @@ namespace Matching {
  */
 class HttpMatchingDataImpl : public HttpMatchingData {
 public:
-  explicit HttpMatchingDataImpl(const StreamInfo::StreamInfo& stream_info)
-      : stream_info_(stream_info) {}
+  HttpMatchingDataImpl(const StreamInfo::StreamInfo& stream_info, Random::RandomGenerator& random)
+      : stream_info_(stream_info), random_(random) {}
 
   static absl::string_view name() { return "http"; }
 
@@ -56,12 +56,15 @@ public:
     return stream_info_.downstreamAddressProvider();
   }
 
+  Random::RandomGenerator& randomGenerator() const override { return random_; }
+
 private:
   const StreamInfo::StreamInfo& stream_info_;
   const RequestHeaderMap* request_headers_{};
   const ResponseHeaderMap* response_headers_{};
   const RequestTrailerMap* request_trailers_{};
   const ResponseTrailerMap* response_trailers_{};
+  Random::RandomGenerator& random_;
 };
 
 using HttpMatchingDataImplSharedPtr = std::shared_ptr<HttpMatchingDataImpl>;

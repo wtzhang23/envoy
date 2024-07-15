@@ -3,6 +3,7 @@
 #include "source/common/network/socket_impl.h"
 #include "source/common/ssl/matching/inputs.h"
 
+#include "test/mocks/common.h"
 #include "test/mocks/ssl/mocks.h"
 #include "test/mocks/stream_info/mocks.h"
 
@@ -16,7 +17,8 @@ using testing::ReturnRef;
 TEST(Authentication, UriSanInput) {
   UriSanInput<Http::HttpMatchingData> input;
   NiceMock<StreamInfo::MockStreamInfo> stream_info;
-  Http::Matching::HttpMatchingDataImpl data(stream_info);
+  NiceMock<Random::MockRandomGenerator> random;
+  Http::Matching::HttpMatchingDataImpl data(stream_info, random);
 
   {
     const auto result = input.get(data);
@@ -62,7 +64,8 @@ TEST(Authentication, UriSanInput) {
 TEST(Authentication, DnsSanInput) {
   DnsSanInput<Http::HttpMatchingData> input;
   NiceMock<StreamInfo::MockStreamInfo> stream_info;
-  Http::Matching::HttpMatchingDataImpl data(stream_info);
+  NiceMock<Random::MockRandomGenerator> random;
+  Http::Matching::HttpMatchingDataImpl data(stream_info, random);
   {
     const auto result = input.get(data);
     EXPECT_EQ(result.data_availability_,
@@ -107,7 +110,8 @@ TEST(Authentication, SubjectInput) {
   SubjectInput<Http::HttpMatchingData> input;
 
   NiceMock<StreamInfo::MockStreamInfo> stream_info;
-  Http::Matching::HttpMatchingDataImpl data(stream_info);
+  NiceMock<Random::MockRandomGenerator> random;
+  Http::Matching::HttpMatchingDataImpl data(stream_info, random);
 
   {
     const auto result = input.get(data);

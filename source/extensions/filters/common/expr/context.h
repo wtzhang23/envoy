@@ -9,9 +9,21 @@
 #include "source/common/runtime/runtime_features.h"
 #include "source/common/singleton/const_singleton.h"
 
+// CEL-CPP does not enforce unused parameter checks consistently, so we relax it here.
+
+#if defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+#endif
+
+#include "eval/public/cel_function.h"
 #include "eval/public/cel_value.h"
 #include "eval/public/containers/container_backed_list_impl.h"
 #include "eval/public/structs/cel_proto_wrapper.h"
+
+#if defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
 
 namespace Envoy {
 namespace Extensions {
@@ -19,6 +31,8 @@ namespace Filters {
 namespace Common {
 namespace Expr {
 
+using CelFunction = google::api::expr::runtime::CelFunction;
+using CelFunctionDescriptor = google::api::expr::runtime::CelFunctionDescriptor;
 using CelValue = google::api::expr::runtime::CelValue;
 using CelProtoWrapper = google::api::expr::runtime::CelProtoWrapper;
 
@@ -94,6 +108,9 @@ constexpr absl::string_view FilterChainName = "filter_chain_name";
 constexpr absl::string_view ListenerMetadata = "listener_metadata";
 constexpr absl::string_view ListenerDirection = "listener_direction";
 constexpr absl::string_view Node = "node";
+
+// common functions
+constexpr absl::string_view Random = "random";
 
 class WrapperFieldValues {
 public:
@@ -255,6 +272,33 @@ private:
   const StreamInfo::StreamInfo* info_;
   const LocalInfo::LocalInfo* local_info_;
 };
+
+// Returns a random uint64_t
+class RandomCelFunction : public CelFunction {
+public:
+  RandomCelFunction() : CelFunction(descriptor()), random_(nullptr){};
+  explicit RandomCelFunction(Random::RandomGenerator& random)
+      : CelFunction({std::string(Random), false, {}}), random_(&random) {}
+  static CelFunctionDescriptor descriptor() {
+    return CelFunctionDescriptor(std::string(Random), false, {});
+  }
+
+  absl::Status Evaluate(absl::Span<const CelValue> arguments, CelValue* output,
+                        Protobuf::Arena*) const override {
+    if (arguments.size() != 0) {
+      return absl::InternalError("Argument number mismatch, expected 0");
+    }
+    if (random_ == nullptr) {
+      return absl::UnavailableError("No access to a random number generator");
+    }
+    *output = CelValue::CreateUint64(random_->random());
+    return absl::OkStatus();
+  }
+
+private:
+  Random::RandomGenerator* random_;
+};
+using RandomCelFunctionPtr = std::unique_ptr<RandomCelFunction>;
 
 } // namespace Expr
 } // namespace Common

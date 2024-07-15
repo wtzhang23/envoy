@@ -26,14 +26,17 @@ public:
 
   class FilterMatchState {
   public:
-    FilterMatchState(Matcher::MatchTreeSharedPtr<Envoy::Http::HttpMatchingData> match_tree)
-        : match_tree_(std::move(match_tree)), has_match_tree_(match_tree_ != nullptr) {}
+    FilterMatchState(Matcher::MatchTreeSharedPtr<Envoy::Http::HttpMatchingData> match_tree,
+                     Random::RandomGenerator& random)
+        : match_tree_(std::move(match_tree)), has_match_tree_(match_tree_ != nullptr),
+          random_(random) {}
 
     void evaluateMatchTree(MatchDataUpdateFunc data_update_func);
     bool skipFilter() const { return skip_filter_; }
     void onStreamInfo(const StreamInfo::StreamInfo& stream_info) {
       if (matching_data_ == nullptr) {
-        matching_data_ = std::make_shared<Envoy::Http::Matching::HttpMatchingDataImpl>(stream_info);
+        matching_data_ =
+            std::make_shared<Envoy::Http::Matching::HttpMatchingDataImpl>(stream_info, random_);
       }
     }
 
@@ -49,6 +52,7 @@ public:
   private:
     Matcher::MatchTreeSharedPtr<Envoy::Http::HttpMatchingData> match_tree_;
     bool has_match_tree_{};
+    Random::RandomGenerator& random_;
     Envoy::Http::StreamFilterBase* base_filter_{};
 
     Envoy::Http::Matching::HttpMatchingDataImplSharedPtr matching_data_;
@@ -58,7 +62,8 @@ public:
 
   DelegatingStreamFilter(Matcher::MatchTreeSharedPtr<Envoy::Http::HttpMatchingData> match_tree,
                          Envoy::Http::StreamDecoderFilterSharedPtr decoder_filter,
-                         Envoy::Http::StreamEncoderFilterSharedPtr encoder_filter);
+                         Envoy::Http::StreamEncoderFilterSharedPtr encoder_filter,
+                         Random::RandomGenerator& random);
 
   // Envoy::Http::StreamFilterBase
   void onStreamComplete() override { base_filter_->onStreamComplete(); }

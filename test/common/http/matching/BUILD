@@ -12,6 +12,7 @@ envoy_cc_test(
     name = "inputs_test",
     srcs = ["inputs_test.cc"],
     deps = [
+        "//source/common/common:random_generator_lib",
         "//source/common/http/matching:data_impl_lib",
         "//source/common/http/matching:inputs_lib",
         "//source/common/network:address_lib",
@@ -26,6 +27,7 @@ envoy_cc_test(
     name = "status_code_input_test",
     srcs = ["status_code_input_test.cc"],
     deps = [
+        "//source/common/common:random_generator_lib",
         "//source/common/http/matching:data_impl_lib",
         "//source/common/http/matching:status_code_input_lib",
         "//source/common/network:address_lib",

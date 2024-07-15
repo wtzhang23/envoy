@@ -69,22 +69,24 @@ private:
 
 struct DelegatingFactoryCallbacks : public Envoy::Http::FilterChainFactoryCallbacks {
   DelegatingFactoryCallbacks(Envoy::Http::FilterChainFactoryCallbacks& delegated_callbacks,
-                             Matcher::MatchTreeSharedPtr<Envoy::Http::HttpMatchingData> match_tree)
-      : delegated_callbacks_(delegated_callbacks), match_tree_(match_tree) {}
+                             Matcher::MatchTreeSharedPtr<Envoy::Http::HttpMatchingData> match_tree,
+                             Random::RandomGenerator& random)
+      : delegated_callbacks_(delegated_callbacks), match_tree_(match_tree), random_(random) {}
 
   Event::Dispatcher& dispatcher() override { return delegated_callbacks_.dispatcher(); }
   void addStreamDecoderFilter(Envoy::Http::StreamDecoderFilterSharedPtr filter) override {
     auto delegating_filter =
-        std::make_shared<DelegatingStreamFilter>(match_tree_, std::move(filter), nullptr);
+        std::make_shared<DelegatingStreamFilter>(match_tree_, std::move(filter), nullptr, random_);
     delegated_callbacks_.addStreamDecoderFilter(std::move(delegating_filter));
   }
   void addStreamEncoderFilter(Envoy::Http::StreamEncoderFilterSharedPtr filter) override {
     auto delegating_filter =
-        std::make_shared<DelegatingStreamFilter>(match_tree_, nullptr, std::move(filter));
+        std::make_shared<DelegatingStreamFilter>(match_tree_, nullptr, std::move(filter), random_);
     delegated_callbacks_.addStreamEncoderFilter(std::move(delegating_filter));
   }
   void addStreamFilter(Envoy::Http::StreamFilterSharedPtr filter) override {
-    auto delegating_filter = std::make_shared<DelegatingStreamFilter>(match_tree_, filter, filter);
+    auto delegating_filter =
+        std::make_shared<DelegatingStreamFilter>(match_tree_, filter, filter, random_);
     delegated_callbacks_.addStreamFilter(std::move(delegating_filter));
   }
 
@@ -94,6 +96,7 @@ struct DelegatingFactoryCallbacks : public Envoy::Http::FilterChainFactoryCallba
 
   Envoy::Http::FilterChainFactoryCallbacks& delegated_callbacks_;
   Matcher::MatchTreeSharedPtr<Envoy::Http::HttpMatchingData> match_tree_;
+  Random::RandomGenerator& random_;
 };
 
 } // namespace Factory
@@ -133,8 +136,8 @@ void DelegatingStreamFilter::FilterMatchState::evaluateMatchTree(
 DelegatingStreamFilter::DelegatingStreamFilter(
     Matcher::MatchTreeSharedPtr<Envoy::Http::HttpMatchingData> match_tree,
     Envoy::Http::StreamDecoderFilterSharedPtr decoder_filter,
-    Envoy::Http::StreamEncoderFilterSharedPtr encoder_filter)
-    : match_state_(std::move(match_tree)), decoder_filter_(std::move(decoder_filter)),
+    Envoy::Http::StreamEncoderFilterSharedPtr encoder_filter, Random::RandomGenerator& random)
+    : match_state_(std::move(match_tree), random), decoder_filter_(std::move(decoder_filter)),
       encoder_filter_(std::move(encoder_filter)) {
 
   if (encoder_filter_ != nullptr) {
@@ -339,9 +342,10 @@ absl::StatusOr<Envoy::Http::FilterFactoryCb> MatchDelegateConfig::createFilterFa
   if (factory_cb.has_value()) {
     match_tree = factory_cb.value()();
   }
-
-  return [filter_factory, match_tree](Envoy::Http::FilterChainFactoryCallbacks& callbacks) -> void {
-    Factory::DelegatingFactoryCallbacks delegating_callbacks(callbacks, match_tree);
+  return [filter_factory, match_tree,
+          &context](Envoy::Http::FilterChainFactoryCallbacks& callbacks) -> void {
+    Factory::DelegatingFactoryCallbacks delegating_callbacks(
+        callbacks, match_tree, context.serverFactoryContext().api().randomGenerator());
     return filter_factory(delegating_callbacks);
   };
 }

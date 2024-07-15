@@ -17,10 +17,11 @@ namespace Expr = Filters::Common::Expr;
 
 CELFormatter::CELFormatter(const ::Envoy::LocalInfo::LocalInfo& local_info,
                            Expr::BuilderInstanceSharedPtr expr_builder,
+                           Random::RandomGenerator& random,
                            const google::api::expr::v1alpha1::Expr& input_expr,
                            absl::optional<size_t>& max_length)
-    : local_info_(local_info), expr_builder_(expr_builder), parsed_expr_(input_expr),
-      max_length_(max_length) {
+    : local_info_(local_info), expr_builder_(expr_builder), random_(random),
+      parsed_expr_(input_expr), max_length_(max_length) {
   compiled_expr_ = Expr::createExpression(expr_builder_->builder(), parsed_expr_);
 }
 
@@ -30,7 +31,7 @@ CELFormatter::formatWithContext(const Envoy::Formatter::HttpFormatterContext& co
   Protobuf::Arena arena;
   auto eval_status =
       Expr::evaluate(*compiled_expr_, arena, &local_info_, stream_info, &context.requestHeaders(),
-                     &context.responseHeaders(), &context.responseTrailers());
+                     &context.responseHeaders(), &context.responseTrailers(), random_);
   if (!eval_status.has_value() || eval_status.value().IsError()) {
     return absl::nullopt;
   }
@@ -63,8 +64,8 @@ CELFormatterCommandParser::parse(const std::string& command, const std::string& 
                            parse_status.status().ToString());
     }
 
-    return std::make_unique<CELFormatter>(local_info_, expr_builder_, parse_status.value().expr(),
-                                          max_length);
+    return std::make_unique<CELFormatter>(local_info_, expr_builder_, random_,
+                                          parse_status.value().expr(), max_length);
   }
 
   return nullptr;

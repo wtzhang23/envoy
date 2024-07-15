@@ -22,6 +22,7 @@ envoy_cc_library(
         "@com_google_cel_cpp//eval/public:builtin_func_registrar",
         "@com_google_cel_cpp//eval/public:cel_expr_builder_factory",
         "@com_google_cel_cpp//eval/public:cel_expression",
+        "@com_google_cel_cpp//eval/public:cel_function",
         "@com_google_cel_cpp//eval/public:cel_value",
     ],
 )
@@ -38,6 +39,7 @@ envoy_cc_library(
         "//source/common/http:utility_lib",
         "//source/common/singleton:const_singleton",
         "//source/common/stream_info:utility_lib",
+        "@com_google_cel_cpp//eval/public:cel_function",
         "@com_google_cel_cpp//eval/public:cel_value",
         "@com_google_cel_cpp//eval/public:cel_value_producer",
         "@com_google_cel_cpp//eval/public/containers:container_backed_list_impl",

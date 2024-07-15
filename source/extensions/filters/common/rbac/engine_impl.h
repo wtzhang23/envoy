@@ -109,6 +109,7 @@ public:
 
 private:
   const EnforcementMode mode_;
+  Random::RandomGenerator& random_;
   Envoy::Matcher::MatchTreeSharedPtr<Http::HttpMatchingData> matcher_;
   bool has_log_;
 };

@@ -109,7 +109,7 @@ RoleBasedAccessControlMatcherEngineImpl::RoleBasedAccessControlMatcherEngineImpl
     const xds::type::matcher::v3::Matcher& matcher,
     Server::Configuration::ServerFactoryContext& factory_context,
     ActionValidationVisitor& validation_visitor, const EnforcementMode mode)
-    : mode_(mode) {
+    : mode_(mode), random_(factory_context.api().randomGenerator()) {
   ActionContext context{false};
   Envoy::Matcher::MatchTreeFactory<Http::HttpMatchingData, ActionContext> factory(
       context, factory_context, validation_visitor);
@@ -132,7 +132,7 @@ bool RoleBasedAccessControlMatcherEngineImpl::handleAction(const Network::Connec
 bool RoleBasedAccessControlMatcherEngineImpl::handleAction(
     const Network::Connection&, const Envoy::Http::RequestHeaderMap& headers,
     StreamInfo::StreamInfo& info, std::string* effective_policy_id) const {
-  Http::Matching::HttpMatchingDataImpl data(info);
+  Http::Matching::HttpMatchingDataImpl data(info, random_);
   data.onRequestHeaders(headers);
   const auto& result = Envoy::Matcher::evaluateMatch<Http::HttpMatchingData>(*matcher_, data);
   ASSERT(result.match_state_ == Envoy::Matcher::MatchState::MatchComplete);

@@ -1890,7 +1890,8 @@ VirtualHostImpl::VirtualHostImpl(
     Server::Configuration::ServerFactoryContext& factory_context, Stats::Scope& scope,
     ProtobufMessage::ValidationVisitor& validator,
     const absl::optional<Upstream::ClusterManager::ClusterInfoMaps>& validation_clusters,
-    absl::Status& creation_status) {
+    absl::Status& creation_status)
+    : random_(factory_context.api().randomGenerator()) {
 
   auto host_or_error = CommonVirtualHostImpl::create(virtual_host, global_route_config,
                                                      factory_context, scope, validator);
@@ -1999,7 +2000,7 @@ RouteConstSharedPtr VirtualHostImpl::getRouteFromEntries(const RouteCallback& cb
   }
 
   if (matcher_) {
-    Http::Matching::HttpMatchingDataImpl data(stream_info);
+    Http::Matching::HttpMatchingDataImpl data(stream_info, random_);
     data.onRequestHeaders(headers);
 
     auto match = Matcher::evaluateMatch<Http::HttpMatchingData>(*matcher_, data);

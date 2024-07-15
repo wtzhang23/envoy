@@ -1215,6 +1215,8 @@ public:
   }
 
   Ssl::ConnectionInfoConstSharedPtr ssl() const { return connectionInfoProvider().sslConnection(); }
+
+  virtual Random::RandomGenerator& randomGenerator() const PURE;
 };
 
 /**

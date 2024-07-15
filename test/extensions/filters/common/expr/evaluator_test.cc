@@ -1,5 +1,8 @@
+#include "test/extensions/filters/common/expr/evaluator_test.h"
+
 #include "source/extensions/filters/common/expr/evaluator.h"
 
+#include "test/mocks/common.h"
 #include "test/mocks/stream_info/mocks.h"
 #include "test/test_common/utility.h"
 
@@ -52,6 +55,29 @@ TEST(Evaluator, Activation) {
   const auto activation = createActivation(nullptr, info, nullptr, nullptr, nullptr);
   EXPECT_TRUE(activation->FindValue("filter_state", &arena).has_value());
   EXPECT_TRUE(activation->FindValue("upstream_filter_state", &arena).has_value());
+}
+
+TEST(Evaluator, RandomFunction) {
+  Protobuf::Arena arena;
+  auto builder = createBuilder(&arena);
+
+  google::api::expr::v1alpha1::CheckedExpr checked;
+  Protobuf::TextFormat::ParseFromString(RandomCelString, &checked);
+  auto expr = createExpression(*builder, checked.expr());
+
+  NiceMock<StreamInfo::MockStreamInfo> info;
+  NiceMock<Random::MockRandomGenerator> random;
+  EXPECT_CALL(random, random()).WillOnce(testing::Return(42));
+  auto value = evaluate(*expr, arena, nullptr, info, nullptr, nullptr, nullptr, random);
+  EXPECT_TRUE(value.has_value());
+  ASSERT_TRUE(value.value().IsUint64());
+  EXPECT_EQ(42, value.value().Uint64OrDie());
+
+  EXPECT_CALL(random, random()).WillOnce(testing::Return(43));
+  value = evaluate(*expr, arena, nullptr, info, nullptr, nullptr, nullptr, random);
+  EXPECT_TRUE(value.has_value());
+  ASSERT_TRUE(value.value().IsUint64());
+  EXPECT_EQ(43, value.value().Uint64OrDie());
 }
 
 } // namespace

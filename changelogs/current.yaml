@@ -521,6 +521,9 @@ new_features:
     QUIC stream reset error code will be added to transport failure reason.
     This behavior can be reverted by setting the runtime flag ``envoy.reloadable_features.report_stream_reset_error_code``
     to false.
+- area: cel
+  change: |
+    Added the ``random()`` convenience function.
 
 deprecated:
 - area: tracing

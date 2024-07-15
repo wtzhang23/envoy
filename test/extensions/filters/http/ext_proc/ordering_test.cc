@@ -76,7 +76,8 @@ protected:
         std::make_shared<Envoy::Extensions::Filters::Common::Expr::BuilderInstance>(
             Envoy::Extensions::Filters::Common::Expr::createBuilder(nullptr)),
         factory_context_);
-    filter_ = std::make_unique<Filter>(config_, std::move(client_), proto_config.grpc_service());
+    filter_ =
+        std::make_unique<Filter>(config_, std::move(client_), random_, proto_config.grpc_service());
     filter_->setEncoderFilterCallbacks(encoder_callbacks_);
     filter_->setDecoderFilterCallbacks(decoder_callbacks_);
   }
@@ -218,6 +219,7 @@ protected:
   Http::TestRequestTrailerMapImpl request_trailers_;
   Http::TestResponseTrailerMapImpl response_trailers_;
   NiceMock<Server::Configuration::MockServerFactoryContext> factory_context_;
+  NiceMock<Random::MockRandomGenerator> random_;
 };
 
 // A base class for tests that will check that gRPC streams fail while being created

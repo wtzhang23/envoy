@@ -717,6 +717,64 @@ inline constexpr absl::string_view DynamicMetadataCelString = R"pb(
   }
 )pb";
 
+// random() % 2u == 0u
+inline constexpr char RandomCelString[] = R"pb(
+  expr: {
+    id: 4
+    call_expr: {
+      function: "_==_"
+      args: {
+        id: 2
+        call_expr: {
+          function: "_%_"
+          args: {
+            id: 1
+            call_expr: {
+              function: "random"
+            }
+          }
+          args: {
+            id: 3
+            const_expr: {
+              uint64_value: 2
+            }
+          }
+        }
+      }
+      args: {
+        id: 5
+        const_expr: {
+          uint64_value: 0
+        }
+      }
+    }
+  }
+  source_info: {
+    location: "<input>"
+    line_offsets: 20
+    positions: {
+      key: 1
+      value: 6
+    }
+    positions: {
+      key: 2
+      value: 9
+    }
+    positions: {
+      key: 3
+      value: 11
+    }
+    positions: {
+      key: 4
+      value: 14
+    }
+    positions: {
+      key: 5
+      value: 17
+    }
+  }
+)pb";
+
 } // namespace CelMatcher
 } // namespace InputMatchers
 } // namespace Matching

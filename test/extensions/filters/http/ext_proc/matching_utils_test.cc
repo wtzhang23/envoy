@@ -29,6 +29,7 @@ public:
   NiceMock<Server::Configuration::MockServerFactoryContext> context_;
   testing::NiceMock<StreamInfo::MockStreamInfo> stream_info_;
   testing::NiceMock<LocalInfo::MockLocalInfo> local_info_;
+  NiceMock<Random::MockRandomGenerator> random_;
   TestRequestHeaderMapImpl request_headers_;
   TestResponseHeaderMapImpl response_headers_;
   TestRequestTrailerMapImpl request_trailers_;
@@ -50,7 +51,7 @@ TEST_F(ExpressionManagerTest, DuplicateAttributesIgnored) {
   request_headers_.setPath("/foo");
   const auto activation_ptr = Filters::Common::Expr::createActivation(
       &expr_mgr.localInfo(), stream_info_, &request_headers_, &response_headers_,
-      &response_trailers_);
+      &response_trailers_, random_);
 
   auto result = expr_mgr.evaluateRequestAttributes(*activation_ptr);
   EXPECT_EQ(2, result.fields_size());
@@ -74,7 +75,7 @@ TEST_F(ExpressionManagerTest, EmptyExpressionReturnsEmptyStruct) {
   request_headers_.setPath("/foo");
   const auto activation_ptr = Filters::Common::Expr::createActivation(
       &expr_mgr.localInfo(), stream_info_, &request_headers_, &response_headers_,
-      &response_trailers_);
+      &response_trailers_, random_);
 
   EXPECT_EQ(0, expr_mgr.evaluateRequestAttributes(*activation_ptr).fields_size());
 }

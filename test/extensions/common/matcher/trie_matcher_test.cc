@@ -663,12 +663,13 @@ matcher_tree:
   auto match_tree = matcher_factory.create(matcher);
 
   NiceMock<StreamInfo::MockStreamInfo> stream_info;
+  NiceMock<Random::MockRandomGenerator> random;
   const Network::Address::InstanceConstSharedPtr address =
       std::make_shared<Network::Address::Ipv4Instance>("192.168.0.1", 8080);
   stream_info.downstream_connection_info_provider_->setLocalAddress(address);
   stream_info.downstream_connection_info_provider_->setRemoteAddress(address);
 
-  Http::Matching::HttpMatchingDataImpl data(stream_info);
+  Http::Matching::HttpMatchingDataImpl data(stream_info, random);
 
   const auto result = match_tree()->match(data);
   EXPECT_EQ(result.match_state_, MatchState::MatchComplete);

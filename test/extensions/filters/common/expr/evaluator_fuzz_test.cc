@@ -44,8 +44,9 @@ DEFINE_PROTO_FUZZER(const test::extensions::filters::common::expr::EvaluatorTest
 
     // Evaluate the CEL expression.
     Protobuf::Arena arena;
+    Random::MockRandomGenerator random;
     Expr::evaluate(*expr, arena, nullptr, *stream_info, &request_headers, &response_headers,
-                   &response_trailers);
+                   &response_trailers, random);
   } catch (const CelException& e) {
     ENVOY_LOG_MISC(debug, "CelException: {}", e.what());
   }

@@ -10,6 +10,7 @@
 #include "source/extensions/matching/network/application_protocol/config.h"
 #include "source/extensions/matching/network/common/inputs.h"
 
+#include "test/mocks/common.h"
 #include "test/mocks/network/mocks.h"
 
 namespace Envoy {
@@ -53,7 +54,8 @@ TEST(MatchingData, HttpDestinationIPInput) {
   StreamInfo::StreamInfoImpl stream_info(
       Http::Protocol::Http2, Event::GlobalTimeSystem().timeSystem(), connection_info_provider,
       StreamInfo::FilterState::LifeSpan::FilterChain);
-  Http::Matching::HttpMatchingDataImpl data(stream_info);
+  NiceMock<Random::MockRandomGenerator> random;
+  Http::Matching::HttpMatchingDataImpl data(stream_info, random);
   {
     DestinationIPInput<Http::HttpMatchingData> input;
     const auto result = input.get(data);

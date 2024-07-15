@@ -412,6 +412,7 @@ private:
 
   std::vector<RouteEntryImplBaseConstSharedPtr> routes_;
   Matcher::MatchTreeSharedPtr<Http::HttpMatchingData> matcher_;
+  Random::RandomGenerator& random_;
 };
 
 using VirtualHostSharedPtr = std::shared_ptr<VirtualHostImpl>;

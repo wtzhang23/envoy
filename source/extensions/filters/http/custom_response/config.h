@@ -41,6 +41,7 @@ public:
 private:
   Stats::StatName stats_prefix_;
   const Matcher::MatchTreePtr<::Envoy::Http::HttpMatchingData> matcher_;
+  Random::RandomGenerator& random_;
 };
 
 } // namespace CustomResponse

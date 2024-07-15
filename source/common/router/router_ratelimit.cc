@@ -51,14 +51,15 @@ public:
 class MatchInputRateLimitDescriptor : public RateLimit::DescriptorProducer {
 public:
   MatchInputRateLimitDescriptor(const std::string& descriptor_key,
-                                Matcher::DataInputPtr<Http::HttpMatchingData>&& data_input)
-      : descriptor_key_(descriptor_key), data_input_(std::move(data_input)) {}
+                                Matcher::DataInputPtr<Http::HttpMatchingData>&& data_input,
+                                Random::RandomGenerator& random)
+      : descriptor_key_(descriptor_key), data_input_(std::move(data_input)), random_(random) {}
 
   // Ratelimit::DescriptorProducer
   bool populateDescriptor(RateLimit::DescriptorEntry& descriptor_entry, const std::string&,
                           const Http::RequestHeaderMap& headers,
                           const StreamInfo::StreamInfo& info) const override {
-    Http::Matching::HttpMatchingDataImpl data(info);
+    Http::Matching::HttpMatchingDataImpl data(info, random_);
     data.onRequestHeaders(headers);
     auto result = data_input_->get(data);
     if (absl::holds_alternative<absl::monostate>(result.data_)) {
@@ -74,6 +75,7 @@ public:
 private:
   const std::string descriptor_key_;
   Matcher::DataInputPtr<Http::HttpMatchingData> data_input_;
+  Random::RandomGenerator& random_;
 };
 
 } // namespace
@@ -329,7 +331,7 @@ RateLimitPolicyEntryImpl::RateLimitPolicyEntryImpl(
         Matcher::DataInputFactoryCb<Http::HttpMatchingData> data_input_cb =
             input_factory.createDataInput(action.extension());
         actions_.emplace_back(std::make_unique<MatchInputRateLimitDescriptor>(
-            action.extension().name(), data_input_cb()));
+            action.extension().name(), data_input_cb(), context.api().randomGenerator()));
         break;
       }
       auto message = Envoy::Config::Utility::translateAnyToFactoryConfig(

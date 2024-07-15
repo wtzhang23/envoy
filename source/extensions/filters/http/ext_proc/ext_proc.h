@@ -368,8 +368,8 @@ class Filter : public Logger::Loggable<Logger::Id::ext_proc>,
 
 public:
   Filter(const FilterConfigSharedPtr& config, ExternalProcessorClientPtr&& client,
-         const envoy::config::core::v3::GrpcService& grpc_service)
-      : config_(config), client_(std::move(client)), stats_(config->stats()),
+         Random::RandomGenerator& random, const envoy::config::core::v3::GrpcService& grpc_service)
+      : config_(config), client_(std::move(client)), random_(random), stats_(config->stats()),
         grpc_service_(grpc_service), config_with_hash_key_(grpc_service),
         decoding_state_(*this, config->processingMode(),
                         config->untypedForwardingMetadataNamespaces(),
@@ -470,6 +470,7 @@ private:
 
   const FilterConfigSharedPtr config_;
   const ExternalProcessorClientPtr client_;
+  Random::RandomGenerator& random_;
   ExtProcFilterStats stats_;
   ExtProcLoggingInfo* logging_info_;
   envoy::config::core::v3::GrpcService grpc_service_;

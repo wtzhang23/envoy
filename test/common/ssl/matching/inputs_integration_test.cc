@@ -126,11 +126,12 @@ TEST_F(HttpInputsIntegrationTest, UriSanInput) {
   initialize("UriSanInput", host);
 
   NiceMock<StreamInfo::MockStreamInfo> stream_info;
+  NiceMock<Random::MockRandomGenerator> random;
   std::shared_ptr<Ssl::MockConnectionInfo> ssl = std::make_shared<Ssl::MockConnectionInfo>();
   stream_info.downstream_connection_info_provider_->setSslConnection(ssl);
   std::vector<std::string> uri_sans{host};
   EXPECT_CALL(*ssl, uriSanPeerCertificate()).WillOnce(Return(uri_sans));
-  Http::Matching::HttpMatchingDataImpl data(stream_info);
+  Http::Matching::HttpMatchingDataImpl data(stream_info, random);
 
   const auto result = match_tree_()->match(data);
   EXPECT_EQ(result.match_state_, Matcher::MatchState::MatchComplete);
@@ -143,11 +144,12 @@ TEST_F(HttpInputsIntegrationTest, DnsSanInput) {
   initialize("DnsSanInput", host);
 
   NiceMock<StreamInfo::MockStreamInfo> stream_info;
+  NiceMock<Random::MockRandomGenerator> random;
   std::shared_ptr<Ssl::MockConnectionInfo> ssl = std::make_shared<Ssl::MockConnectionInfo>();
   stream_info.downstream_connection_info_provider_->setSslConnection(ssl);
   std::vector<std::string> dns_sans{host};
   EXPECT_CALL(*ssl, dnsSansPeerCertificate()).WillOnce(Return(dns_sans));
-  Http::Matching::HttpMatchingDataImpl data(stream_info);
+  Http::Matching::HttpMatchingDataImpl data(stream_info, random);
 
   const auto result = match_tree_()->match(data);
   EXPECT_EQ(result.match_state_, Matcher::MatchState::MatchComplete);
@@ -160,10 +162,11 @@ TEST_F(HttpInputsIntegrationTest, SubjectInput) {
   initialize("SubjectInput", host);
 
   NiceMock<StreamInfo::MockStreamInfo> stream_info;
+  NiceMock<Random::MockRandomGenerator> random;
   std::shared_ptr<Ssl::MockConnectionInfo> ssl = std::make_shared<Ssl::MockConnectionInfo>();
   stream_info.downstream_connection_info_provider_->setSslConnection(ssl);
   EXPECT_CALL(*ssl, subjectPeerCertificate()).WillOnce(testing::ReturnRef(host));
-  Http::Matching::HttpMatchingDataImpl data(stream_info);
+  Http::Matching::HttpMatchingDataImpl data(stream_info, random);
 
   const auto result = match_tree_()->match(data);
   EXPECT_EQ(result.match_state_, Matcher::MatchState::MatchComplete);

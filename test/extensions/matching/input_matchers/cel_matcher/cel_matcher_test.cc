@@ -50,7 +50,7 @@ public:
       : inject_action_(action_factory_),
         cluster_info_(std::make_shared<testing::NiceMock<Upstream::MockClusterInfo>>()),
         route_(std::make_shared<NiceMock<Router::MockRoute>>()),
-        data_(Envoy::Http::Matching::HttpMatchingDataImpl(stream_info_)) {}
+        data_(Envoy::Http::Matching::HttpMatchingDataImpl(stream_info_, random_)) {}
 
   void buildCustomHeader(const absl::flat_hash_map<std::string, std::string>& custom_value_pairs,
                          TestRequestHeaderMapImpl& headers) {
@@ -146,6 +146,7 @@ public:
   std::shared_ptr<testing::NiceMock<Upstream::MockClusterInfo>> cluster_info_;
   std::shared_ptr<NiceMock<Router::MockRoute>> route_;
   testing::NiceMock<StreamInfo::MockStreamInfo> stream_info_;
+  testing::NiceMock<Random::MockRandomGenerator> random_;
   absl::string_view context_ = "";
   testing::NiceMock<Server::Configuration::MockServerFactoryContext> factory_context_;
   envoy::config::core::v3::Metadata metadata_;
@@ -187,7 +188,7 @@ TEST_F(CelMatcherTest, CelMatcherRequestHeaderNotMatched) {
   TestRequestHeaderMapImpl request_headers_2 = default_headers_;
   buildCustomHeader({{"NOT_MATCHED", "staging"}}, request_headers_2);
   Envoy::Http::Matching::HttpMatchingDataImpl data_2 =
-      Envoy::Http::Matching::HttpMatchingDataImpl(stream_info_);
+      Envoy::Http::Matching::HttpMatchingDataImpl(stream_info_, random_);
   data_2.onRequestHeaders(request_headers_2);
   const auto result_2 = matcher_tree->match(data_2);
   // The match was completed, no match found.
@@ -199,7 +200,7 @@ TEST_F(CelMatcherTest, CelMatcherClusterMetadataMatched) {
   setUpstreamClusterMetadata(std::string(kFilterNamespace), std::string(kMetadataKey),
                              std::string(kMetadataValue));
   Envoy::Http::Matching::HttpMatchingDataImpl data =
-      Envoy::Http::Matching::HttpMatchingDataImpl(stream_info_);
+      Envoy::Http::Matching::HttpMatchingDataImpl(stream_info_, random_);
   auto matcher_tree = buildMatcherTree(absl::StrFormat(
       UpstreamClusterMetadataCelString, kFilterNamespace, kMetadataKey, kMetadataValue));
   const auto result = matcher_tree->match(data_);
@@ -213,7 +214,7 @@ TEST_F(CelMatcherTest, CelMatcherClusterMetadataNotMatched) {
   setUpstreamClusterMetadata(std::string(kFilterNamespace), std::string(kMetadataKey),
                              "wrong_service");
   Envoy::Http::Matching::HttpMatchingDataImpl data =
-      Envoy::Http::Matching::HttpMatchingDataImpl(stream_info_);
+      Envoy::Http::Matching::HttpMatchingDataImpl(stream_info_, random_);
   auto matcher_tree = buildMatcherTree(absl::StrFormat(
       UpstreamClusterMetadataCelString, kFilterNamespace, kMetadataKey, kMetadataValue));
 
@@ -227,7 +228,7 @@ TEST_F(CelMatcherTest, CelMatcherRouteMetadataMatched) {
   setUpstreamRouteMetadata(std::string(kFilterNamespace), std::string(kMetadataKey),
                            std::string(kMetadataValue));
   Envoy::Http::Matching::HttpMatchingDataImpl data =
-      Envoy::Http::Matching::HttpMatchingDataImpl(stream_info_);
+      Envoy::Http::Matching::HttpMatchingDataImpl(stream_info_, random_);
   auto matcher_tree = buildMatcherTree(absl::StrFormat(
       UpstreamRouteMetadataCelString, kFilterNamespace, kMetadataKey, kMetadataValue));
   const auto result = matcher_tree->match(data_);
@@ -241,7 +242,7 @@ TEST_F(CelMatcherTest, CelMatcherRouteMetadataNotMatched) {
   setUpstreamRouteMetadata(std::string(kFilterNamespace), std::string(kMetadataKey),
                            "wrong_service");
   Envoy::Http::Matching::HttpMatchingDataImpl data =
-      Envoy::Http::Matching::HttpMatchingDataImpl(stream_info_);
+      Envoy::Http::Matching::HttpMatchingDataImpl(stream_info_, random_);
   auto matcher_tree = buildMatcherTree(absl::StrFormat(
       UpstreamClusterMetadataCelString, kFilterNamespace, kMetadataKey, kMetadataValue));
 
@@ -255,7 +256,7 @@ TEST_F(CelMatcherTest, CelMatcherDynamicMetadataMatched) {
   setDynamicMetadata(std::string(kFilterNamespace), std::string(kMetadataKey),
                      std::string(kMetadataValue));
   Envoy::Http::Matching::HttpMatchingDataImpl data =
-      Envoy::Http::Matching::HttpMatchingDataImpl(stream_info_);
+      Envoy::Http::Matching::HttpMatchingDataImpl(stream_info_, random_);
   auto matcher_tree = buildMatcherTree(
       absl::StrFormat(DynamicMetadataCelString, kFilterNamespace, kMetadataKey, kMetadataValue));
   const auto result = matcher_tree->match(data_);
@@ -268,7 +269,7 @@ TEST_F(CelMatcherTest, CelMatcherDynamicMetadataMatched) {
 TEST_F(CelMatcherTest, CelMatcherDynamicMetadataNotMatched) {
   setDynamicMetadata(std::string(kFilterNamespace), std::string(kMetadataKey), "wrong_service");
   Envoy::Http::Matching::HttpMatchingDataImpl data =
-      Envoy::Http::Matching::HttpMatchingDataImpl(stream_info_);
+      Envoy::Http::Matching::HttpMatchingDataImpl(stream_info_, random_);
   auto matcher_tree = buildMatcherTree(
       absl::StrFormat(DynamicMetadataCelString, kFilterNamespace, kMetadataKey, kMetadataValue));
 
@@ -487,6 +488,27 @@ TEST_F(CelMatcherTest, CelMatcherRequestResponseNotMatchedWithParsedExpr) {
   TestResponseTrailerMapImpl response_trailers = {{"transfer-encoding", "chunked"}};
   data_.onResponseTrailers(response_trailers);
 
+  const auto result = matcher_tree->match(data_);
+  // The match was completed, no match found.
+  EXPECT_EQ(result.match_state_, Matcher::MatchState::MatchComplete);
+  EXPECT_EQ(result.on_match_, absl::nullopt);
+}
+
+TEST_F(CelMatcherTest, CelMatcherRandomMatched) {
+  auto matcher_tree = buildMatcherTree(RandomCelString);
+
+  EXPECT_CALL(random_, random()).WillOnce(testing::Return(42));
+  const auto result = matcher_tree->match(data_);
+  // The match was complete, match found.
+  EXPECT_EQ(result.match_state_, Matcher::MatchState::MatchComplete);
+  EXPECT_TRUE(result.on_match_.has_value());
+  EXPECT_NE(result.on_match_->action_cb_, nullptr);
+}
+
+TEST_F(CelMatcherTest, CelMatcherRandomNotMatched) {
+  auto matcher_tree = buildMatcherTree(RandomCelString);
+
+  EXPECT_CALL(random_, random()).WillOnce(testing::Return(43));
   const auto result = matcher_tree->match(data_);
   // The match was completed, no match found.
   EXPECT_EQ(result.match_state_, Matcher::MatchState::MatchComplete);
