@@ -144,5 +144,7 @@ new_features:
   change: |
     Added the initial support for shared libraries to be loaded by Envoy at runtime. Please refer to the overview documentation for the
     feature :ref:`here <arch_overview_dynamic_modules>`.
-
+- area: adaptive concurrency
+  change: |
+    Allow fixing the minimum RTT by introducing ``fixed_value``.
 deprecated:
