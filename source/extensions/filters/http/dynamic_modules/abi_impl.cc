@@ -75,80 +75,149 @@ envoy_dynamic_module_type_metric_counter_envoy_ptr
 envoy_dynamic_module_callback_metric_define_counter(
     envoy_dynamic_module_type_http_filter_config_envoy_ptr filter_config_envoy_ptr,
     envoy_dynamic_module_type_buffer_module_ptr name, size_t name_length) {
-  auto filter_config = static_cast<DynamicModuleHttpFilterConfig const*>(filter_config_envoy_ptr);
+  auto filter_config = static_cast<DynamicModuleHttpFilterConfig*>(filter_config_envoy_ptr);
   if (filter_config->stat_creation_frozen_) {
     return nullptr;
   }
   absl::string_view name_view(name, name_length);
   Stats::StatNameManagedStorage storage(name_view, filter_config->stats_scope_->symbolTable());
   Stats::StatName stat_name = storage.statName();
-  Stats::Counter* c = &Stats::Utility::counterFromStatNames(
+  Stats::Counter& c = Stats::Utility::counterFromStatNames(
       *filter_config->stats_scope_, {filter_config->custom_stat_namespace_, stat_name});
-  return c;
+  return &filter_config->addCounter(c, std::string(name_view));
+}
+
+envoy_dynamic_module_type_metric_counter_envoy_ptr
+envoy_dynamic_module_callback_metric_get_counter_by_id(
+    envoy_dynamic_module_type_http_filter_config_envoy_ptr filter_config_envoy_ptr,
+    int id) {
+  auto filter_config = static_cast<DynamicModuleHttpFilterConfig*>(filter_config_envoy_ptr);
+  return filter_config->getCounterById(id).ptr();
+}
+
+envoy_dynamic_module_type_metric_counter_envoy_ptr
+envoy_dynamic_module_callback_metric_get_counter_by_name(
+    envoy_dynamic_module_type_http_filter_config_envoy_ptr filter_config_envoy_ptr,
+    envoy_dynamic_module_type_buffer_module_ptr name, size_t name_length) {
+  auto filter_config = static_cast<DynamicModuleHttpFilterConfig*>(filter_config_envoy_ptr);
+  absl::string_view name_view(name, name_length);
+  return filter_config->getCounterByName(name_view).ptr();
+}
+
+int envoy_dynamic_module_callback_metric_get_counter_id(
+    envoy_dynamic_module_type_metric_counter_envoy_ptr counter_envoy_ptr) {
+  auto wrapped = static_cast<DynamicModuleHttpFilterConfig::WrappedCounter*>(counter_envoy_ptr);
+  return wrapped->id_;
 }
 
 void envoy_dynamic_module_callback_metric_increment_counter(
     envoy_dynamic_module_type_metric_counter_envoy_ptr counter_envoy_ptr, uint64_t value) {
-  Stats::Counter* counter = static_cast<Stats::Counter*>(counter_envoy_ptr);
-  counter->add(value);
+  auto wrapped = static_cast<DynamicModuleHttpFilterConfig::WrappedCounter*>(counter_envoy_ptr);
+  wrapped->counter_.add(value);
 }
 
 envoy_dynamic_module_type_metric_gauge_envoy_ptr envoy_dynamic_module_callback_metric_define_gauge(
     envoy_dynamic_module_type_http_filter_config_envoy_ptr filter_config_envoy_ptr,
     envoy_dynamic_module_type_buffer_module_ptr name, size_t name_length) {
-  auto filter_config = static_cast<DynamicModuleHttpFilterConfig const*>(filter_config_envoy_ptr);
+  auto filter_config = static_cast<DynamicModuleHttpFilterConfig*>(filter_config_envoy_ptr);
   if (filter_config->stat_creation_frozen_) {
     return nullptr;
   }
   absl::string_view name_view(name, name_length);
   Stats::StatNameManagedStorage storage(name_view, filter_config->stats_scope_->symbolTable());
   Stats::StatName stat_name = storage.statName();
-  Stats::Gauge* c = &Stats::Utility::gaugeFromStatNames(
+  Stats::Gauge& g = Stats::Utility::gaugeFromStatNames(
       *filter_config->stats_scope_, {filter_config->custom_stat_namespace_, stat_name},
       Stats::Gauge::ImportMode::Accumulate);
-  return c;
+  return &filter_config->addGauge(g, std::string(name_view));
+}
+
+envoy_dynamic_module_type_metric_gauge_envoy_ptr
+envoy_dynamic_module_callback_metric_get_gauge_by_id(
+    envoy_dynamic_module_type_http_filter_config_envoy_ptr filter_config_envoy_ptr,
+    int id) {
+  auto filter_config = static_cast<DynamicModuleHttpFilterConfig*>(filter_config_envoy_ptr);
+  return filter_config->getGaugeById(id).ptr();
+}
+
+envoy_dynamic_module_type_metric_gauge_envoy_ptr
+envoy_dynamic_module_callback_metric_get_gauge_by_name(
+    envoy_dynamic_module_type_http_filter_config_envoy_ptr filter_config_envoy_ptr,
+    envoy_dynamic_module_type_buffer_module_ptr name, size_t name_length) {
+  auto filter_config = static_cast<DynamicModuleHttpFilterConfig*>(filter_config_envoy_ptr);
+  absl::string_view name_view(name, name_length);
+  return filter_config->getGaugeByName(name_view).ptr();
+}
+
+int envoy_dynamic_module_callback_metric_get_gauge_id(
+    envoy_dynamic_module_type_metric_gauge_envoy_ptr gauge_envoy_ptr) {
+  auto wrapped = static_cast<DynamicModuleHttpFilterConfig::WrappedGauge*>(gauge_envoy_ptr);
+  return wrapped->id_;
 }
 
 void envoy_dynamic_module_callback_metric_increase_gauge(
     envoy_dynamic_module_type_metric_gauge_envoy_ptr gauge_envoy_ptr, uint64_t value) {
-  Stats::Gauge* gauge = static_cast<Stats::Gauge*>(gauge_envoy_ptr);
-  gauge->add(value);
+  auto wrapped = static_cast<DynamicModuleHttpFilterConfig::WrappedGauge*>(gauge_envoy_ptr);
+  wrapped->gauge_.add(value);
 }
 
 void envoy_dynamic_module_callback_metric_decrease_gauge(
     envoy_dynamic_module_type_metric_gauge_envoy_ptr gauge_envoy_ptr, uint64_t value) {
-  Stats::Gauge* gauge = static_cast<Stats::Gauge*>(gauge_envoy_ptr);
-  gauge->sub(value);
+  auto wrapped = static_cast<DynamicModuleHttpFilterConfig::WrappedGauge*>(gauge_envoy_ptr);
+  wrapped->gauge_.sub(value);
 }
 
 void envoy_dynamic_module_callback_metric_set_gauge(
     envoy_dynamic_module_type_metric_gauge_envoy_ptr gauge_envoy_ptr, uint64_t value) {
-  Stats::Gauge* gauge = static_cast<Stats::Gauge*>(gauge_envoy_ptr);
-  gauge->set(value);
+  auto wrapped = static_cast<DynamicModuleHttpFilterConfig::WrappedGauge*>(gauge_envoy_ptr);
+  wrapped->gauge_.set(value);
 }
 
 envoy_dynamic_module_type_metric_histogram_envoy_ptr
 envoy_dynamic_module_callback_metric_define_histogram(
     envoy_dynamic_module_type_http_filter_config_envoy_ptr filter_config_envoy_ptr,
     envoy_dynamic_module_type_buffer_module_ptr name, size_t name_length) {
-  auto filter_config = static_cast<DynamicModuleHttpFilterConfig const*>(filter_config_envoy_ptr);
+  auto filter_config = static_cast<DynamicModuleHttpFilterConfig*>(filter_config_envoy_ptr);
   if (filter_config->stat_creation_frozen_) {
     return nullptr;
   }
   absl::string_view name_view(name, name_length);
   Stats::StatNameManagedStorage storage(name_view, filter_config->stats_scope_->symbolTable());
   Stats::StatName stat_name = storage.statName();
-  Stats::Histogram* c = &Stats::Utility::histogramFromStatNames(
+  Stats::Histogram& h = Stats::Utility::histogramFromStatNames(
       *filter_config->stats_scope_, {filter_config->custom_stat_namespace_, stat_name},
       // TODO should we allow callers to specify this?
       Stats::Histogram::Unit::Unspecified);
-  return c;
+  return &filter_config->addHistogram(h, std::string(name_view));
+}
+
+envoy_dynamic_module_type_metric_histogram_envoy_ptr
+envoy_dynamic_module_callback_metric_get_histogram_by_id(
+    envoy_dynamic_module_type_http_filter_config_envoy_ptr filter_config_envoy_ptr,
+    int id) {
+  auto filter_config = static_cast<DynamicModuleHttpFilterConfig*>(filter_config_envoy_ptr);
+  return filter_config->getHistogramById(id).ptr();
+}
+
+envoy_dynamic_module_type_metric_histogram_envoy_ptr
+envoy_dynamic_module_callback_metric_get_histogram_by_name(
+    envoy_dynamic_module_type_http_filter_config_envoy_ptr filter_config_envoy_ptr,
+    envoy_dynamic_module_type_buffer_module_ptr name, size_t name_length) {
+  auto filter_config = static_cast<DynamicModuleHttpFilterConfig*>(filter_config_envoy_ptr);
+  absl::string_view name_view(name, name_length);
+  return filter_config->getHistogramByName(name_view).ptr();
+}
+
+int envoy_dynamic_module_callback_metric_get_histogram_id(
+    envoy_dynamic_module_type_metric_histogram_envoy_ptr histogram_envoy_ptr) {
+  auto wrapped = static_cast<DynamicModuleHttpFilterConfig::WrappedHistogram*>(histogram_envoy_ptr);
+  return wrapped->id_;
 }
 
 void envoy_dynamic_module_callback_metric_record_histogram_value(
     envoy_dynamic_module_type_metric_histogram_envoy_ptr histogram_envoy_ptr, uint64_t value) {
-  Stats::Histogram* histogram = static_cast<Stats::Histogram*>(histogram_envoy_ptr);
-  histogram->recordValue(value);
+  auto wrapped = static_cast<DynamicModuleHttpFilterConfig::WrappedHistogram*>(histogram_envoy_ptr);
+  wrapped->hist_.recordValue(value);
 }
 
 size_t envoy_dynamic_module_callback_http_get_request_header(
@@ -1189,6 +1258,14 @@ void envoy_dynamic_module_callback_log(envoy_dynamic_module_type_log_level level
     break;
   }
 }
+
+envoy_dynamic_module_type_http_filter_config_envoy_ptr envoy_dynamic_module_callback_get_http_filter_config(
+  envoy_dynamic_module_type_http_filter_envoy_ptr filter_envoy_ptr
+) {
+  DynamicModuleHttpFilter* filter = static_cast<DynamicModuleHttpFilter*>(filter_envoy_ptr);
+  return &filter->getFilterConfig();
+}
+
 }
 } // namespace HttpFilters
 } // namespace DynamicModules

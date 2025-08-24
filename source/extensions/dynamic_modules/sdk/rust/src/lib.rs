@@ -13,6 +13,8 @@ use mockall::*;
 mod mod_test;
 
 use std::any::Any;
+use std::cell::OnceCell;
+use std::marker::PhantomData;
 use std::sync::OnceLock;
 
 /// This module contains the generated bindings for the envoy dynamic modules ABI.
@@ -377,13 +379,31 @@ pub trait EnvoyHttpFilterConfig {
   // nullptr back? Unlike other APIs used so far in dynamic modules that can
   // return nullptrs, it always indicates a programming error. Is it really
   // correct to surface such an error in this trait? Or should we panic?
-  fn define_counter(&self, name: &str) -> EnvoyCounter;
+  fn define_counter<'a>(&'a mut self, name: &str) -> EnvoyCounter<'a>;
+
+  /// Gets a previously initialized counter by id.
+  fn get_counter_by_id(&self, id: EnvoyCounterId) -> EnvoyCounter<'_>;
+
+  /// Gets a previously initialized counter by name.
+  fn get_counter_by_name<'a>(&'a self, name: &str) -> EnvoyCounter<'a>;
 
   /// Define a new gauge scoped to this filter config with the given name.
-  fn define_gauge(&self, name: &str) -> EnvoyGauge;
+  fn define_gauge<'a>(&'a mut self, name: &str) -> EnvoyGauge<'a>;
+
+  /// Gets a previously initialized gauge by id.
+  fn get_gauge_by_id(&self, id: EnvoyGaugeId) -> EnvoyGauge<'_>;
+
+  /// Gets a previously initialized gauge by name.
+  fn get_gauge_by_name<'a>(&'a self, name: &str) -> EnvoyGauge<'a>;
 
   /// Define a new histogram scoped to this filter config with the given name.
-  fn define_histogram(&self, name: &str) -> EnvoyHistogram;
+  fn define_histogram<'a>(&'a mut self, name: &str) -> EnvoyHistogram<'a>;
+
+  /// Gets a previously initialized histogram by id.
+  fn get_histogram_by_id(&self, id: EnvoyHistogramId) -> EnvoyHistogram<'_>;
+
+  /// Gets a previously initialized histogram by name.
+  fn get_histogram_by_name<'a>(&'a self, name: &str) -> EnvoyHistogram<'a>;
 }
 
 pub struct EnvoyHttpFilterConfigImpl {
@@ -391,7 +411,7 @@ pub struct EnvoyHttpFilterConfigImpl {
 }
 
 impl EnvoyHttpFilterConfig for EnvoyHttpFilterConfigImpl {
-  fn define_counter(&self, name: &str) -> EnvoyCounter {
+  fn define_counter<'a>(&'a mut self, name: &str) -> EnvoyCounter<'a> {
     let name_ptr = name.as_ptr();
     let name_size = name.len();
     let counter_ptr = unsafe {
@@ -403,10 +423,32 @@ impl EnvoyHttpFilterConfig for EnvoyHttpFilterConfigImpl {
     };
     EnvoyCounter {
       raw_ptr: counter_ptr,
+      phantom: PhantomData,
     }
   }
 
-  fn define_gauge(&self, name: &str) -> EnvoyGauge {
+  fn get_counter_by_id(&self, id: EnvoyCounterId) -> EnvoyCounter<'_> {
+    let EnvoyCounterId(id) = id;
+    let counter_ptr = unsafe {
+      abi::envoy_dynamic_module_callback_metric_get_counter_by_id(self.raw_ptr, id)
+    };
+    EnvoyCounter { raw_ptr: counter_ptr, phantom: PhantomData }
+  }
+
+  fn get_counter_by_name<'a>(&'a self, name: &str) -> EnvoyCounter<'a> {
+    let name_ptr = name.as_ptr();
+    let name_size = name.len();
+    let counter_ptr = unsafe {
+      abi::envoy_dynamic_module_callback_metric_get_counter_by_name(
+        self.raw_ptr, 
+        name_ptr as *const _ as *mut _, 
+        name_size,
+      )
+    };
+    EnvoyCounter { raw_ptr: counter_ptr, phantom: PhantomData }
+  }
+
+  fn define_gauge(&mut self, name: &str) -> EnvoyGauge<'_> {
     let name_ptr = name.as_ptr();
     let name_size = name.len();
     let gauge_ptr = unsafe {
@@ -416,10 +458,34 @@ impl EnvoyHttpFilterConfig for EnvoyHttpFilterConfigImpl {
         name_size,
       )
     };
-    EnvoyGauge { raw_ptr: gauge_ptr }
+    EnvoyGauge { 
+      raw_ptr: gauge_ptr, 
+      phantom: PhantomData,
+    }
   }
 
-  fn define_histogram(&self, name: &str) -> EnvoyHistogram {
+  fn get_gauge_by_id(&self, id: EnvoyGaugeId) -> EnvoyGauge<'_> {
+      let EnvoyGaugeId(id) = id;
+      let gauge_ptr = unsafe {
+        abi::envoy_dynamic_module_callback_metric_get_gauge_by_id(self.raw_ptr, id)
+      };
+      EnvoyGauge { raw_ptr: gauge_ptr, phantom: PhantomData }
+  }
+
+  fn get_gauge_by_name<'a>(&'a self, name: &str) -> EnvoyGauge<'a> {
+    let name_ptr = name.as_ptr();
+    let name_size = name.len();
+    let gauge_ptr = unsafe {
+      abi::envoy_dynamic_module_callback_metric_get_gauge_by_name(
+        self.raw_ptr, 
+        name_ptr as *const _ as *mut _, 
+        name_size,
+      )
+    };
+    EnvoyGauge { raw_ptr: gauge_ptr, phantom: PhantomData }
+  }
+
+  fn define_histogram(&mut self, name: &str) -> EnvoyHistogram<'_> {
     let name_ptr = name.as_ptr();
     let name_size = name.len();
     let histogram_ptr = unsafe {
@@ -431,18 +497,50 @@ impl EnvoyHttpFilterConfig for EnvoyHttpFilterConfigImpl {
     };
     EnvoyHistogram {
       raw_ptr: histogram_ptr,
+      phantom: PhantomData,
     }
+  }
+
+  fn get_histogram_by_id(&self, id: EnvoyHistogramId) -> EnvoyHistogram<'_> {
+    let EnvoyHistogramId(id) = id;
+    let histogram_ptr = unsafe {
+      abi::envoy_dynamic_module_callback_metric_get_histogram_by_id(self.raw_ptr, id)
+    };
+    EnvoyHistogram { raw_ptr: histogram_ptr, phantom: PhantomData }
+  }
+
+  fn get_histogram_by_name<'a>(&'a self, name: &str) -> EnvoyHistogram<'a> {
+    let name_ptr = name.as_ptr();
+    let name_size = name.len();
+    let histogram_ptr = unsafe {
+      abi::envoy_dynamic_module_callback_metric_get_histogram_by_name(
+        self.raw_ptr, 
+        name_ptr as *const _ as *mut _, 
+        name_size,
+      )
+    };
+    EnvoyHistogram { raw_ptr: histogram_ptr, phantom: PhantomData }
   }
 }
 
 /// An opaque object that represents an underlying Envoy Stats::Counter that's
 /// been previously defined on an EnvoyHttpFilterConfig.
-#[derive(Copy, Clone)]
-pub struct EnvoyCounter {
+pub struct EnvoyCounter<'a> {
   raw_ptr: abi::envoy_dynamic_module_type_metric_counter_envoy_ptr,
+  phantom: PhantomData<&'a ()>,
 }
 
-impl EnvoyCounter {
+/// The identifier for an EnvoyCounter.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct EnvoyCounterId(std::ffi::c_int);
+
+impl<'a> EnvoyCounter<'a> {
+  /// Gets the id of this counter
+  pub fn get_id(&self) -> EnvoyCounterId {
+    let id = unsafe { abi::envoy_dynamic_module_callback_metric_get_counter_id(self.raw_ptr) };
+    EnvoyCounterId(id)
+  }
+
   /// Increment this counter by the given value.
   pub fn increment(&self, value: u64) {
     unsafe { abi::envoy_dynamic_module_callback_metric_increment_counter(self.raw_ptr, value) }
@@ -452,11 +550,22 @@ impl EnvoyCounter {
 /// An opaque object that represents an underlying Envoy Stats::Gauge that's
 /// been previously defined on an EnvoyHttpFilterConfig.
 #[derive(Copy, Clone)]
-pub struct EnvoyGauge {
+pub struct EnvoyGauge<'a> {
   raw_ptr: abi::envoy_dynamic_module_type_metric_gauge_envoy_ptr,
+  phantom: PhantomData<&'a ()>,
 }
 
-impl EnvoyGauge {
+/// The identifier for an EnvoyGauge.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct EnvoyGaugeId(std::ffi::c_int);
+
+impl<'a> EnvoyGauge<'a> {
+  /// Gets the id of this gauge
+  pub fn get_id(&self) -> EnvoyGaugeId {
+    let id = unsafe { abi::envoy_dynamic_module_callback_metric_get_gauge_id(self.raw_ptr) };
+    EnvoyGaugeId(id)
+  }
+
   /// Increase this gauge by the given value.
   pub fn increase(&self, value: u64) {
     unsafe { abi::envoy_dynamic_module_callback_metric_increase_gauge(self.raw_ptr, value) }
@@ -476,11 +585,22 @@ impl EnvoyGauge {
 /// An opaque object that represents an underlying Envoy Stats::Histogram that's
 /// been previously defined on an EnvoyHttpFilterConfig.
 #[derive(Copy, Clone)]
-pub struct EnvoyHistogram {
+pub struct EnvoyHistogram<'a> {
   raw_ptr: abi::envoy_dynamic_module_type_metric_histogram_envoy_ptr,
+  phantom: PhantomData<&'a ()>,
 }
 
-impl EnvoyHistogram {
+/// The identifier for an EnvoyHistogram.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct EnvoyHistogramId(std::ffi::c_int);
+
+impl<'a> EnvoyHistogram<'a> {
+  /// Gets the id of this histogram
+  pub fn get_id(&self) -> EnvoyHistogramId {
+    let id = unsafe { abi::envoy_dynamic_module_callback_metric_get_histogram_id(self.raw_ptr) };
+    EnvoyHistogramId(id)
+  }
+
   /// Record the given value in this histogram.
   pub fn record_value(&self, value: u64) {
     unsafe { abi::envoy_dynamic_module_callback_metric_record_histogram_value(self.raw_ptr, value) }
@@ -495,6 +615,9 @@ impl EnvoyHistogram {
 #[automock]
 #[allow(clippy::needless_lifetimes)] // Explicit lifetime specifiers are needed for mockall.
 pub trait EnvoyHttpFilter {
+  /// Get the Envoy http filter config for this filter.
+  fn get_filter_config<'a>(&self) -> &dyn EnvoyHttpFilterConfig;
+
   /// Get the value of the request header with the given key.
   /// If the header is not found, this returns `None`.
   ///
@@ -896,9 +1019,21 @@ pub trait EnvoyHttpFilter {
 /// This is not meant to be used directly.
 pub struct EnvoyHttpFilterImpl {
   raw_ptr: abi::envoy_dynamic_module_type_http_filter_envoy_ptr,
+  filter_config: OnceCell<Box<dyn EnvoyHttpFilterConfig>>,
 }
 
 impl EnvoyHttpFilter for EnvoyHttpFilterImpl {
+  fn get_filter_config<'a>(&'a self) ->  &'a dyn EnvoyHttpFilterConfig {
+    &**self.filter_config.get_or_init(|| {
+      let filter_config_ptr = unsafe {
+        abi::envoy_dynamic_module_callback_get_http_filter_config(self.raw_ptr)
+      };
+      Box::new(EnvoyHttpFilterConfigImpl{
+        raw_ptr:filter_config_ptr
+      })
+    })
+  }
+
   fn get_request_header_value(&self, key: &str) -> Option<EnvoyBuffer> {
     self.get_header_value_impl(
       key,
@@ -1445,7 +1580,7 @@ impl EnvoyHttpFilter for EnvoyHttpFilterImpl {
 
 impl EnvoyHttpFilterImpl {
   fn new(raw_ptr: abi::envoy_dynamic_module_type_http_filter_envoy_ptr) -> Self {
-    Self { raw_ptr }
+    Self { raw_ptr, filter_config: OnceCell::new() }
   }
 
   /// Implement the common logic for getting all headers/trailers.

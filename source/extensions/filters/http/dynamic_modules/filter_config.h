@@ -85,12 +85,123 @@ public:
   // and not later during request handling, so that we don't have to wrap the stat storage in a lock.
   bool stat_creation_frozen_ = false;
 
+  class WrappedCounter {
+  public:
+    WrappedCounter(Stats::Counter& counter, std::string name, int id): counter_(counter), name_(name), id_(id){}
+    Stats::Counter& counter_;
+    std::string name_;
+    int id_; // corresponds to the index of the counter in the vec
+  };
+
+  typedef std::unique_ptr<WrappedCounter> WrappedCounterPtr;
+
+  class WrappedGauge {
+  public:
+    WrappedGauge(Stats::Gauge& gauge, std::string name, int id): gauge_(gauge), name_(name), id_(id){}
+    Stats::Gauge& gauge_;
+    std::string name_;
+    int id_; // corresponds to the index of the gauge in the vec  
+  };
+
+  typedef std::unique_ptr<WrappedGauge> WrappedGaugePtr;
+
+  class WrappedHistogram {
+  public:
+    WrappedHistogram(Stats::Histogram& hist, std::string name, int id): hist_(hist), name_(name), id_(id){}
+    Stats::Histogram& hist_;
+    std::string name_;
+    int id_; // corresponds to the index of the histogram in the vec
+  };
+
+  typedef std::unique_ptr<WrappedHistogram> WrappedHistogramPtr;
+
+  WrappedCounter& addCounter(Stats::Counter& counter, std::string name) {
+    auto wrapped = std::make_unique<WrappedCounter>(counter, name, counters_.size());
+    counters_.push_back(std::move(wrapped)); 
+    return *counters_.back(); // reference to unique pointer preserved on vector resizing
+  }
+
+  OptRef<WrappedCounter> getCounterById(int id) const {
+    if (id < 0 || static_cast<size_t>(id) >= counters_.size()) {
+        return {};
+    }
+    return makeOptRef(*counters_[id]);
+  }
+
+  OptRef<WrappedCounter> getCounterByName(absl::string_view name_view) const {
+    const auto it = std::find_if(counters_.begin(), counters_.end(), [name_view](
+        const WrappedCounterPtr& c
+    ){
+        return c->name_ == name_view;
+    });
+    if (it == counters_.end()) {
+        return {};
+    }
+    return makeOptRef(**it);
+  }
+
+  WrappedGauge& addGauge(Stats::Gauge& gauge, std::string name) {
+    auto wrapped = std::make_unique<WrappedGauge>(gauge, name, gauges_.size());
+    gauges_.push_back(std::move(wrapped));
+    return *gauges_.back(); // reference to unique pointer preserved on vector resizing
+  }
+
+  OptRef<WrappedGauge> getGaugeById(int id) const {
+    if (id < 0 || static_cast<size_t>(id) >= gauges_.size()) {
+        return {};
+    }
+    return makeOptRef(*gauges_[id]);
+  }
+
+  OptRef<WrappedGauge> getGaugeByName(absl::string_view name_view) const {
+    const auto it = std::find_if(gauges_.begin(), gauges_.end(), [name_view](
+        const WrappedGaugePtr& g
+    ){
+        return g->name_ == name_view;
+    });
+    if (it == gauges_.end()) {
+        return {};
+    }
+    return makeOptRef(**it);
+  }
+
+  WrappedHistogram& addHistogram(Stats::Histogram& hist, std::string name) {
+    auto wrapped = std::make_unique<WrappedHistogram>(hist, name, hists_.size());
+    hists_.push_back(std::move(wrapped));
+    return *hists_.back(); //reference to unique pointer preserved on vector resizing
+  }
+
+  OptRef<WrappedHistogram> getHistogramById(int id) const {
+    if (id < 0 || static_cast<size_t>(id) >= hists_.size()) {
+        return {};
+    }
+    return makeOptRef(*hists_[id]);
+  }
+
+  OptRef<WrappedHistogram> getHistogramByName(absl::string_view name_view) const {
+    const auto it = std::find_if(hists_.begin(), hists_.end(), [name_view](
+        const WrappedHistogramPtr& h
+    ){
+        return h->name_ == name_view;
+    });
+    if (it == hists_.end()) {
+        return {};
+    }
+    return makeOptRef(**it);
+  }
+
 private:
+
   // The name of the filter passed in the constructor.
   const std::string filter_name_;
 
   // The configuration for the module.
   const std::string filter_config_;
+
+  // The cached references to stats and their metadata.
+  std::vector<WrappedCounterPtr> counters_;
+  std::vector<WrappedGaugePtr> gauges_;
+  std::vector<WrappedHistogramPtr> hists_;
 
   // The handle for the module.
   Extensions::DynamicModules::DynamicModulePtr dynamic_module_;
