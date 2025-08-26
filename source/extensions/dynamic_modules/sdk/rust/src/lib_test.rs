@@ -16,7 +16,7 @@ fn test_loggers() {
 #[test]
 fn test_envoy_dynamic_module_on_http_filter_config_new_impl() {
   struct TestHttpFilterConfig;
-  impl<EC: EnvoyHttpFilterConfig, EHF: EnvoyHttpFilter> HttpFilterConfig<EC, EHF>
+  impl<EHF: EnvoyHttpFilter> HttpFilterConfig<EHF>
     for TestHttpFilterConfig
   {
   }
@@ -35,7 +35,7 @@ fn test_envoy_dynamic_module_on_http_filter_config_new_impl() {
   assert!(!result.is_null());
 
   unsafe {
-    envoy_dynamic_module_on_http_filter_config_destroy(result);
+    envoy_dynamic_module_on_http_filter_config_destroy(result, envoy_filter_config.raw_ptr);
   }
 
   // None should result in null pointer.
@@ -55,7 +55,7 @@ fn test_envoy_dynamic_module_on_http_filter_config_destroy() {
   // Box.
   static DROPPED: AtomicBool = AtomicBool::new(false);
   struct TestHttpFilterConfig;
-  impl<EC: EnvoyHttpFilterConfig, EHF: EnvoyHttpFilter> HttpFilterConfig<EC, EHF>
+  impl<EHF: EnvoyHttpFilter> HttpFilterConfig<EHF>
     for TestHttpFilterConfig
   {
   }
@@ -65,20 +65,21 @@ fn test_envoy_dynamic_module_on_http_filter_config_destroy() {
     }
   }
 
+  let mut envoy_filter_config = EnvoyHttpFilterConfigImpl {
+    raw_ptr: std::ptr::null_mut(),
+  };
   // This is a sort of round-trip to ensure the same control flow as the actual usage.
   let new_fn: NewHttpFilterConfigFunction<EnvoyHttpFilterConfigImpl, EnvoyHttpFilterImpl> =
     |_, _, _| Some(Box::new(TestHttpFilterConfig));
   let config_ptr = envoy_dynamic_module_on_http_filter_config_new_impl(
-    &mut EnvoyHttpFilterConfigImpl {
-      raw_ptr: std::ptr::null_mut(),
-    },
+    &mut envoy_filter_config,
     "test_name",
     b"test_config",
     &new_fn,
   );
 
   unsafe {
-    envoy_dynamic_module_on_http_filter_config_destroy(config_ptr);
+    envoy_dynamic_module_on_http_filter_config_destroy(config_ptr, envoy_filter_config.raw_ptr);
   }
   // Now that the drop is called, DROPPED must be set to true.
   assert!(DROPPED.load(std::sync::atomic::Ordering::SeqCst));
@@ -90,10 +91,10 @@ fn test_envoy_dynamic_module_on_http_filter_config_destroy() {
 fn test_envoy_dynamic_module_on_http_filter_new_destroy() {
   static DROPPED: AtomicBool = AtomicBool::new(false);
   struct TestHttpFilterConfig;
-  impl<EC: EnvoyHttpFilterConfig, EHF: EnvoyHttpFilter> HttpFilterConfig<EC, EHF>
+  impl<EHF: EnvoyHttpFilter> HttpFilterConfig<EHF>
     for TestHttpFilterConfig
   {
-    fn new_http_filter(&mut self, _envoy: &mut EC) -> Box<dyn HttpFilter<EHF>> {
+    fn new_http_filter(&mut self, _envoy: &mut EHF) -> Box<dyn HttpFilter<EHF>> {
       Box::new(TestHttpFilter)
     }
   }
@@ -108,7 +109,7 @@ fn test_envoy_dynamic_module_on_http_filter_new_destroy() {
 
   let mut filter_config = TestHttpFilterConfig;
   let result = envoy_dynamic_module_on_http_filter_new_impl(
-    &mut EnvoyHttpFilterConfigImpl {
+    &mut EnvoyHttpFilterImpl {
       raw_ptr: std::ptr::null_mut(),
     },
     &mut filter_config,
@@ -126,10 +127,10 @@ fn test_envoy_dynamic_module_on_http_filter_new_destroy() {
 // This tests all the on_* methods on the HttpFilter trait through the actual entry points.
 fn test_envoy_dynamic_module_on_http_filter_callbacks() {
   struct TestHttpFilterConfig;
-  impl<EC: EnvoyHttpFilterConfig, EHF: EnvoyHttpFilter> HttpFilterConfig<EC, EHF>
+  impl<EHF: EnvoyHttpFilter> HttpFilterConfig<EHF>
     for TestHttpFilterConfig
   {
-    fn new_http_filter(&mut self, _envoy: &mut EC) -> Box<dyn HttpFilter<EHF>> {
+    fn new_http_filter(&mut self, _envoy: &mut EHF) -> Box<dyn HttpFilter<EHF>> {
       Box::new(TestHttpFilter)
     }
   }
@@ -203,7 +204,7 @@ fn test_envoy_dynamic_module_on_http_filter_callbacks() {
 
   let mut filter_config = TestHttpFilterConfig;
   let filter = envoy_dynamic_module_on_http_filter_new_impl(
-    &mut EnvoyHttpFilterConfigImpl {
+    &mut EnvoyHttpFilterImpl {
       raw_ptr: std::ptr::null_mut(),
     },
     &mut filter_config,

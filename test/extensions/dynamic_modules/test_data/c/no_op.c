@@ -22,7 +22,8 @@ envoy_dynamic_module_on_http_filter_config_new(
 }
 
 void envoy_dynamic_module_on_http_filter_config_destroy(
-    envoy_dynamic_module_type_http_filter_config_module_ptr filter_config_ptr) {
+    envoy_dynamic_module_type_http_filter_config_module_ptr filter_config_ptr,
+    envoy_dynamic_module_type_http_filter_config_envoy_ptr filter_config_envoy_ptr) {
   assert(filter_config_ptr == &some_variable);
 }
 

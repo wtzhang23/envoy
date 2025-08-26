@@ -128,18 +128,6 @@ public:
     return makeOptRef(*counters_[id]);
   }
 
-  OptRef<WrappedCounter> getCounterByName(absl::string_view name_view) const {
-    const auto it = std::find_if(counters_.begin(), counters_.end(), [name_view](
-        const WrappedCounterPtr& c
-    ){
-        return c->name_ == name_view;
-    });
-    if (it == counters_.end()) {
-        return {};
-    }
-    return makeOptRef(**it);
-  }
-
   WrappedGauge& addGauge(Stats::Gauge& gauge, std::string name) {
     auto wrapped = std::make_unique<WrappedGauge>(gauge, name, gauges_.size());
     gauges_.push_back(std::move(wrapped));
@@ -153,18 +141,6 @@ public:
     return makeOptRef(*gauges_[id]);
   }
 
-  OptRef<WrappedGauge> getGaugeByName(absl::string_view name_view) const {
-    const auto it = std::find_if(gauges_.begin(), gauges_.end(), [name_view](
-        const WrappedGaugePtr& g
-    ){
-        return g->name_ == name_view;
-    });
-    if (it == gauges_.end()) {
-        return {};
-    }
-    return makeOptRef(**it);
-  }
-
   WrappedHistogram& addHistogram(Stats::Histogram& hist, std::string name) {
     auto wrapped = std::make_unique<WrappedHistogram>(hist, name, hists_.size());
     hists_.push_back(std::move(wrapped));
@@ -176,18 +152,6 @@ public:
         return {};
     }
     return makeOptRef(*hists_[id]);
-  }
-
-  OptRef<WrappedHistogram> getHistogramByName(absl::string_view name_view) const {
-    const auto it = std::find_if(hists_.begin(), hists_.end(), [name_view](
-        const WrappedHistogramPtr& h
-    ){
-        return h->name_ == name_view;
-    });
-    if (it == hists_.end()) {
-        return {};
-    }
-    return makeOptRef(**it);
   }
 
 private:

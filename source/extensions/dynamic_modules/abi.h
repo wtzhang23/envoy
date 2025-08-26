@@ -539,9 +539,12 @@ envoy_dynamic_module_on_http_filter_config_new(
  * in-module HTTP filter configuration.
  * @param filter_config_ptr is a pointer to the in-module HTTP filter configuration whose
  * corresponding Envoy HTTP filter configuration is being destroyed.
+ * @param filter_config_envoy_ptr is the pointer to the DynamicModuleHttpFilterConfig object for the 
+ * corresponding config.
  */
 void envoy_dynamic_module_on_http_filter_config_destroy(
-    envoy_dynamic_module_type_http_filter_config_module_ptr filter_config_ptr);
+    envoy_dynamic_module_type_http_filter_config_module_ptr filter_config_ptr,
+    envoy_dynamic_module_type_http_filter_config_envoy_ptr filter_config_envoy_ptr);
 
 /**
  * envoy_dynamic_module_on_http_filter_per_route_config_new is called by the main thread when the
@@ -769,18 +772,6 @@ void envoy_dynamic_module_on_http_filter_scheduled(
 // Callbacks are functions implemented by Envoy that can be called by the module to interact with
 // Envoy. The name of a callback must be prefixed with "envoy_dynamic_module_callback_".
 
-// --------------------------------- Config ------------------------------------
-
-/**
- * envoy_dynamic_module_callback_get_http_filter_config gets an immutable reference to the
- * DynamicModuleHttpFilterConfig of the corresponding HTTP filter.
- * 
- * @param filter_envoy_ptr is the pointer to the DynamicModuleHttpFilter object of the
- * corresponding HTTP filter.
- */
-envoy_dynamic_module_type_http_filter_config_envoy_ptr envoy_dynamic_module_callback_get_http_filter_config(
-    envoy_dynamic_module_type_http_filter_envoy_ptr filter_envoy_ptr);
-
 // --------------------------------- Logging -----------------------------------
 
 /**
@@ -809,7 +800,7 @@ bool envoy_dynamic_module_callback_log_enabled(envoy_dynamic_module_type_log_lev
 // ----------------------------- Metrics callbacks -----------------------------
 
 /**
- * envoy_dynamic_module_callback_metric_define_counter is called by the module during initialization
+ * envoy_dynamic_module_callback_http_config_define_counter is called by the module during initialization
  * to create a new Stats::Counter with the given name.
  *
  * @param filter_config_envoy_ptr is the pointer to the DynamicModuleHttpFilterConfig in which the
@@ -820,12 +811,12 @@ bool envoy_dynamic_module_callback_log_enabled(envoy_dynamic_module_type_log_lev
  * valid only as long as filter_config_envoy_ptr is valid.
  */
 envoy_dynamic_module_type_metric_counter_envoy_ptr
-envoy_dynamic_module_callback_metric_define_counter(
+envoy_dynamic_module_callback_http_config_define_counter(
     envoy_dynamic_module_type_http_filter_config_envoy_ptr filter_config_envoy_ptr,
     envoy_dynamic_module_type_buffer_module_ptr name, size_t name_length);
 
 /**
- * envoy_dynamic_module_callback_metric_get_counter_by_id is called by the module to retrieve
+ * envoy_dynamic_module_callback_http_config_get_counter_by_id is called by the module to retrieve
  * a counter created previously during initialization by its id. 
  * 
  * @param filter_config_envoy_ptr is the pointer to the DynamicModuleHttpFilterConfig in which
@@ -833,22 +824,22 @@ envoy_dynamic_module_callback_metric_define_counter(
  * @param id is the id of the counter.
  */
 envoy_dynamic_module_type_metric_counter_envoy_ptr
-envoy_dynamic_module_callback_metric_get_counter_by_id(
+envoy_dynamic_module_callback_http_config_get_counter_by_id(
     const envoy_dynamic_module_type_http_filter_config_envoy_ptr filter_config_envoy_ptr,
     int id);
 
 /**
- * envoy_dynamic_module_callback_metric_get_counter_by_name is called by the module to retrieve
- * a counter created previously during initialization by its name. 
+ * envoy_dynamic_module_callback_http_get_counter_by_id is called by the module to retrieve
+ * a counter created previously during initialization by its id. 
  * 
- * @param filter_config_envoy_ptr is the pointer to the DynamicModuleHttpFilterConfig in which
+ * @param filter_envoy_ptr is the pointer to the DynamicModuleHttpFilter in which
  * the counter is defined in.
- * @param name is the name of the counter.
+ * @param id is the id of the counter.
  */
 envoy_dynamic_module_type_metric_counter_envoy_ptr
-envoy_dynamic_module_callback_metric_get_counter_by_name(
-    const envoy_dynamic_module_type_http_filter_config_envoy_ptr filter_config_envoy_ptr,
-    envoy_dynamic_module_type_buffer_module_ptr name, size_t name_length);
+envoy_dynamic_module_callback_http_get_counter_by_id(
+    envoy_dynamic_module_type_http_filter_envoy_ptr filter_envoy_ptr,
+    int id);
 
 /**
  * envoy_dynamic_module_callback_metric_get_counter_id is called by the module to get the
@@ -872,7 +863,7 @@ void envoy_dynamic_module_callback_metric_increment_counter(
     envoy_dynamic_module_type_metric_counter_envoy_ptr counter_envoy_ptr, uint64_t value);
 
 /**
- * envoy_dynamic_module_callback_metric_define_gauge is called by the module during initialization
+ * envoy_dynamic_module_callback_http_config_define_gauge is called by the module during initialization
  * to create a new Stats::Gauge with the given name.
  *
  * @param filter_config_envoy_ptr is the pointer to the DynamicModuleHttpFilterConfig in which the
@@ -882,12 +873,12 @@ void envoy_dynamic_module_callback_metric_increment_counter(
  * @return a pointer to the defined gauge that may be used to manipulate it later. This pointer is
  * valid only as long as filter_config_envoy_ptr is valid.
  */
-envoy_dynamic_module_type_metric_gauge_envoy_ptr envoy_dynamic_module_callback_metric_define_gauge(
+envoy_dynamic_module_type_metric_gauge_envoy_ptr envoy_dynamic_module_callback_http_config_define_gauge(
     envoy_dynamic_module_type_http_filter_config_envoy_ptr filter_config_envoy_ptr,
     envoy_dynamic_module_type_buffer_module_ptr name, size_t name_length);
 
 /**
- * envoy_dynamic_module_callback_metric_get_gauge_by_id is called by the module to retrieve
+ * envoy_dynamic_module_callback_http_config_get_gauge_by_id is called by the module to retrieve
  * a gauge created previously during initialization by its id. 
  * 
  * @param filter_config_envoy_ptr is the pointer to the DynamicModuleHttpFilterConfig in which
@@ -895,22 +886,22 @@ envoy_dynamic_module_type_metric_gauge_envoy_ptr envoy_dynamic_module_callback_m
  * @param id is the id of the gauge.
  */
 envoy_dynamic_module_type_metric_gauge_envoy_ptr
-envoy_dynamic_module_callback_metric_get_gauge_by_id(
+envoy_dynamic_module_callback_http_config_get_gauge_by_id(
     envoy_dynamic_module_type_http_filter_config_envoy_ptr filter_config_envoy_ptr,
     int id);
 
 /**
- * envoy_dynamic_module_callback_metric_get_gauge_by_name is called by the module to retrieve
- * a gauge created previously during initialization by its name. 
+ * envoy_dynamic_module_callback_http_get_gauge_by_id is called by the module to retrieve
+ * a gauge created previously during initialization by its id. 
  * 
- * @param filter_config_envoy_ptr is the pointer to the DynamicModuleHttpFilterConfig in which
+ * @param filter_envoy_ptr is the pointer to the DynamicModuleHttpFilter in which
  * the gauge is defined in.
- * @param name is the name of the gauge.
+ * @param id is the id of the gauge.
  */
 envoy_dynamic_module_type_metric_gauge_envoy_ptr
-envoy_dynamic_module_callback_metric_get_gauge_by_name(
-    envoy_dynamic_module_type_http_filter_config_envoy_ptr filter_config_envoy_ptr,
-    envoy_dynamic_module_type_buffer_module_ptr name, size_t name_length);
+envoy_dynamic_module_callback_http_get_gauge_by_id(
+    envoy_dynamic_module_type_http_filter_envoy_ptr filter_envoy_ptr,
+    int id);
 
 /**
  * envoy_dynamic_module_callback_metric_get_gauge_id is called by the module to get the
@@ -956,7 +947,7 @@ void envoy_dynamic_module_callback_metric_set_gauge(
     envoy_dynamic_module_type_metric_gauge_envoy_ptr gauge_envoy_ptr, uint64_t value);
 
 /**
- * envoy_dynamic_module_callback_metric_define_histogram is called by the module during
+ * envoy_dynamic_module_callback_http_config_define_histogram is called by the module during
  * initialization to create a new Stats::Histogram with the given name.
  *
  * @param filter_config_envoy_ptr is the pointer to the DynamicModuleHttpFilterConfig in which the
@@ -967,12 +958,12 @@ void envoy_dynamic_module_callback_metric_set_gauge(
  * pointer is valid only as long as filter_config_envoy_ptr is valid.
  */
 envoy_dynamic_module_type_metric_histogram_envoy_ptr
-envoy_dynamic_module_callback_metric_define_histogram(
+envoy_dynamic_module_callback_http_config_define_histogram(
     envoy_dynamic_module_type_http_filter_config_envoy_ptr filter_config_envoy_ptr,
     envoy_dynamic_module_type_buffer_module_ptr name, size_t name_length);
 
 /**
- * envoy_dynamic_module_callback_metric_get_histogram_by_id is called by the module to retrieve
+ * envoy_dynamic_module_callback_http_config_get_histogram_by_id is called by the module to retrieve
  * a histogram created previously during initialization by its id. 
  * 
  * @param filter_config_envoy_ptr is the pointer to the DynamicModuleHttpFilterConfig in which
@@ -980,22 +971,22 @@ envoy_dynamic_module_callback_metric_define_histogram(
  * @param id is the id of the histogram.
  */
 envoy_dynamic_module_type_metric_histogram_envoy_ptr
-envoy_dynamic_module_callback_metric_get_histogram_by_id(
+envoy_dynamic_module_callback_http_config_get_histogram_by_id(
     envoy_dynamic_module_type_http_filter_config_envoy_ptr filter_config_envoy_ptr,
     int id);
 
 /**
- * envoy_dynamic_module_callback_metric_get_histogram_by_name is called by the module to retrieve
- * a histogram created previously during initialization by its name. 
+ * envoy_dynamic_module_callback_http_get_histogram_by_id is called by the module to retrieve
+ * a histogram created previously during initialization by its id. 
  * 
- * @param filter_config_envoy_ptr is the pointer to the DynamicModuleHttpFilterConfig in which
+ * @param filter_envoy_ptr is the pointer to the DynamicModuleHttpFilter in which
  * the histogram is defined in.
- * @param name is the name of the histogram.
+ * @param id is the id of the histogram.
  */
 envoy_dynamic_module_type_metric_histogram_envoy_ptr
-envoy_dynamic_module_callback_metric_get_histogram_by_name(
-    envoy_dynamic_module_type_http_filter_config_envoy_ptr filter_config_envoy_ptr,
-    envoy_dynamic_module_type_buffer_module_ptr name, size_t name_length);
+envoy_dynamic_module_callback_http_get_histogram_by_id(
+    envoy_dynamic_module_type_http_filter_envoy_ptr filter_envoy_ptr,
+    int id);
 
 /**
  * envoy_dynamic_module_callback_metric_get_histogram_id is called by the module to get the

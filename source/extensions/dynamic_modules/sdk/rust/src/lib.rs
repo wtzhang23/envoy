@@ -13,7 +13,6 @@ use mockall::*;
 mod mod_test;
 
 use std::any::Any;
-use std::cell::OnceCell;
 use std::marker::PhantomData;
 use std::sync::OnceLock;
 
@@ -22,6 +21,14 @@ use std::sync::OnceLock;
 /// This is not meant to be used directly.
 pub mod abi {
   include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
+}
+
+#[derive(Debug)]
+pub struct InitFunctions {
+  pub init_fn: ProgramInitFunction,
+  pub new_http_filter_config_fn: NewHttpFilterConfigFunction<EnvoyHttpFilterConfigImpl, EnvoyHttpFilterImpl>,
+  pub destroy_http_filter_config_fn: Option<DestroyHttpFilterConfigFunction<EnvoyHttpFilterConfigImpl, EnvoyHttpFilterImpl>>,
+  pub new_http_filter_per_route_config_fn: Option<NewHttpFilterPerRouteConfigFunction>,
 }
 
 /// Declare the init functions for the dynamic module.
@@ -60,33 +67,48 @@ pub mod abi {
 /// ```
 #[macro_export]
 macro_rules! declare_init_functions {
-  ($f:ident, $new_http_filter_config_fn:expr, $new_http_filter_per_route_config_fn:expr) => {
+  ($fns:expr) => {
     #[no_mangle]
     pub extern "C" fn envoy_dynamic_module_on_program_init() -> *const ::std::os::raw::c_char {
-      envoy_proxy_dynamic_modules_rust_sdk::NEW_HTTP_FILTER_CONFIG_FUNCTION
-        .get_or_init(|| $new_http_filter_config_fn);
-      envoy_proxy_dynamic_modules_rust_sdk::NEW_HTTP_FILTER_PER_ROUTE_CONFIG_FUNCTION
-        .get_or_init(|| $new_http_filter_per_route_config_fn);
-      if ($f()) {
-        envoy_proxy_dynamic_modules_rust_sdk::abi::kAbiVersion.as_ptr()
+      let ::envoy_proxy_dynamic_modules_rust_sdk::InitFunctions {
+        init_fn,
+        new_http_filter_config_fn,
+        destroy_http_filter_config_fn,
+        new_http_filter_per_route_config_fn,
+      } = $fns;
+      ::envoy_proxy_dynamic_modules_rust_sdk::NEW_HTTP_FILTER_CONFIG_FUNCTION
+        .get_or_init(|| new_http_filter_config_fn);
+      if let Some(f) = destroy_http_filter_config_fn {
+        ::envoy_proxy_dynamic_modules_rust_sdk::DESTROY_HTTP_FILTER_CONFIG_FUNCTION
+          .get_or_init(|| f);
+      }
+      if let Some(f) = new_http_filter_per_route_config_fn {
+        ::envoy_proxy_dynamic_modules_rust_sdk::NEW_HTTP_FILTER_PER_ROUTE_CONFIG_FUNCTION
+        .get_or_init(|| f);
+      }
+      if (init_fn()) {
+        ::envoy_proxy_dynamic_modules_rust_sdk::abi::kAbiVersion.as_ptr()
           as *const ::std::os::raw::c_char
       } else {
         ::std::ptr::null()
       }
     }
   };
+  ($f:ident, $new_http_filter_config_fn:expr, $new_http_filter_per_route_config_fn:expr) => {
+    declare_init_functions!(::envoy_proxy_dynamic_modules_rust_sdk::InitFunctions{
+      init_fn: $f,
+      new_http_filter_config_fn: $new_http_filter_config_fn,
+      destroy_http_filter_config_fn: None,
+      new_http_filter_per_route_config_fn: Some($new_http_filter_per_route_config_fn),
+    });
+  };
   ($f:ident, $new_http_filter_config_fn:expr) => {
-    #[no_mangle]
-    pub extern "C" fn envoy_dynamic_module_on_program_init() -> *const ::std::os::raw::c_char {
-      envoy_proxy_dynamic_modules_rust_sdk::NEW_HTTP_FILTER_CONFIG_FUNCTION
-        .get_or_init(|| $new_http_filter_config_fn);
-      if ($f()) {
-        envoy_proxy_dynamic_modules_rust_sdk::abi::kAbiVersion.as_ptr()
-          as *const ::std::os::raw::c_char
-      } else {
-        ::std::ptr::null()
-      }
-    }
+    declare_init_functions!(::envoy_proxy_dynamic_modules_rust_sdk::InitFunctions{
+      init_fn: $f,
+      new_http_filter_config_fn: $new_http_filter_config_fn,
+      destroy_http_filter_config_fn: None,
+      new_http_filter_per_route_config_fn: None,
+    });
   };
 }
 
@@ -212,12 +234,26 @@ pub type NewHttpFilterConfigFunction<EC, EHF> = fn(
   envoy_filter_config: &mut EC,
   name: &str,
   config: &[u8],
-) -> Option<Box<dyn HttpFilterConfig<EC, EHF>>>;
+) -> Option<Box<dyn HttpFilterConfig<EHF>>>;
 
 /// The global init function for HTTP filter configurations. This is set via the
 /// `declare_init_functions` macro, and is not intended to be set directly.
 pub static NEW_HTTP_FILTER_CONFIG_FUNCTION: OnceLock<
   NewHttpFilterConfigFunction<EnvoyHttpFilterConfigImpl, EnvoyHttpFilterImpl>,
+> = OnceLock::new();
+
+/// The function signature for the destroy HTTP filter configuration function.
+/// 
+/// This is called when an HTTP filter configuration is destroyed.
+pub type DestroyHttpFilterConfigFunction<EC, EHF> = fn(
+  envoy_filter_config: &mut EC,
+  config: Box<dyn HttpFilterConfig<EHF>>,
+);
+
+/// The global destroy function for HTTP filter configurations. This is set via the
+/// `declare_init_functions` macro, and is not intended to be set directly.
+pub static DESTROY_HTTP_FILTER_CONFIG_FUNCTION: OnceLock<
+  DestroyHttpFilterConfigFunction<EnvoyHttpFilterConfigImpl, EnvoyHttpFilterImpl>,
 > = OnceLock::new();
 
 /// The function signature for the new HTTP filter per-route configuration function.
@@ -242,9 +278,9 @@ pub static NEW_HTTP_FILTER_PER_ROUTE_CONFIG_FUNCTION: OnceLock<
 /// The object is created when the corresponding Envoy Http filter config is created, and it is
 /// dropped when the corresponding Envoy Http filter config is destroyed. Therefore, the
 /// imlementation is recommended to implement the [`Drop`] trait to handle the necessary cleanup.
-pub trait HttpFilterConfig<EC: EnvoyHttpFilterConfig, EHF: EnvoyHttpFilter> {
+pub trait HttpFilterConfig<EHF: EnvoyHttpFilter> {
   /// This is called when a HTTP filter chain is created for a new stream.
-  fn new_http_filter(&mut self, _envoy: &mut EC) -> Box<dyn HttpFilter<EHF>> {
+  fn new_http_filter(&mut self, _envoy: &mut EHF) -> Box<dyn HttpFilter<EHF>> {
     panic!("not implemented");
   }
 }
@@ -384,26 +420,17 @@ pub trait EnvoyHttpFilterConfig {
   /// Gets a previously initialized counter by id.
   fn get_counter_by_id(&self, id: EnvoyCounterId) -> EnvoyCounter<'_>;
 
-  /// Gets a previously initialized counter by name.
-  fn get_counter_by_name<'a>(&'a self, name: &str) -> EnvoyCounter<'a>;
-
   /// Define a new gauge scoped to this filter config with the given name.
   fn define_gauge<'a>(&'a mut self, name: &str) -> EnvoyGauge<'a>;
 
   /// Gets a previously initialized gauge by id.
   fn get_gauge_by_id(&self, id: EnvoyGaugeId) -> EnvoyGauge<'_>;
 
-  /// Gets a previously initialized gauge by name.
-  fn get_gauge_by_name<'a>(&'a self, name: &str) -> EnvoyGauge<'a>;
-
   /// Define a new histogram scoped to this filter config with the given name.
   fn define_histogram<'a>(&'a mut self, name: &str) -> EnvoyHistogram<'a>;
 
   /// Gets a previously initialized histogram by id.
   fn get_histogram_by_id(&self, id: EnvoyHistogramId) -> EnvoyHistogram<'_>;
-
-  /// Gets a previously initialized histogram by name.
-  fn get_histogram_by_name<'a>(&'a self, name: &str) -> EnvoyHistogram<'a>;
 }
 
 pub struct EnvoyHttpFilterConfigImpl {
@@ -415,7 +442,7 @@ impl EnvoyHttpFilterConfig for EnvoyHttpFilterConfigImpl {
     let name_ptr = name.as_ptr();
     let name_size = name.len();
     let counter_ptr = unsafe {
-      abi::envoy_dynamic_module_callback_metric_define_counter(
+      abi::envoy_dynamic_module_callback_http_config_define_counter(
         self.raw_ptr,
         name_ptr as *const _ as *mut _,
         name_size,
@@ -429,67 +456,45 @@ impl EnvoyHttpFilterConfig for EnvoyHttpFilterConfigImpl {
 
   fn get_counter_by_id(&self, id: EnvoyCounterId) -> EnvoyCounter<'_> {
     let EnvoyCounterId(id) = id;
-    let counter_ptr = unsafe {
-      abi::envoy_dynamic_module_callback_metric_get_counter_by_id(self.raw_ptr, id)
-    };
-    EnvoyCounter { raw_ptr: counter_ptr, phantom: PhantomData }
-  }
-
-  fn get_counter_by_name<'a>(&'a self, name: &str) -> EnvoyCounter<'a> {
-    let name_ptr = name.as_ptr();
-    let name_size = name.len();
-    let counter_ptr = unsafe {
-      abi::envoy_dynamic_module_callback_metric_get_counter_by_name(
-        self.raw_ptr, 
-        name_ptr as *const _ as *mut _, 
-        name_size,
-      )
-    };
-    EnvoyCounter { raw_ptr: counter_ptr, phantom: PhantomData }
+    let counter_ptr =
+      unsafe { abi::envoy_dynamic_module_callback_http_config_get_counter_by_id(self.raw_ptr, id) };
+    EnvoyCounter {
+      raw_ptr: counter_ptr,
+      phantom: PhantomData,
+    }
   }
 
   fn define_gauge(&mut self, name: &str) -> EnvoyGauge<'_> {
     let name_ptr = name.as_ptr();
     let name_size = name.len();
     let gauge_ptr = unsafe {
-      abi::envoy_dynamic_module_callback_metric_define_gauge(
+      abi::envoy_dynamic_module_callback_http_config_define_gauge(
         self.raw_ptr,
         name_ptr as *const _ as *mut _,
         name_size,
       )
     };
-    EnvoyGauge { 
-      raw_ptr: gauge_ptr, 
+    EnvoyGauge {
+      raw_ptr: gauge_ptr,
       phantom: PhantomData,
     }
   }
 
   fn get_gauge_by_id(&self, id: EnvoyGaugeId) -> EnvoyGauge<'_> {
-      let EnvoyGaugeId(id) = id;
-      let gauge_ptr = unsafe {
-        abi::envoy_dynamic_module_callback_metric_get_gauge_by_id(self.raw_ptr, id)
-      };
-      EnvoyGauge { raw_ptr: gauge_ptr, phantom: PhantomData }
-  }
-
-  fn get_gauge_by_name<'a>(&'a self, name: &str) -> EnvoyGauge<'a> {
-    let name_ptr = name.as_ptr();
-    let name_size = name.len();
-    let gauge_ptr = unsafe {
-      abi::envoy_dynamic_module_callback_metric_get_gauge_by_name(
-        self.raw_ptr, 
-        name_ptr as *const _ as *mut _, 
-        name_size,
-      )
-    };
-    EnvoyGauge { raw_ptr: gauge_ptr, phantom: PhantomData }
+    let EnvoyGaugeId(id) = id;
+    let gauge_ptr =
+      unsafe { abi::envoy_dynamic_module_callback_http_config_get_gauge_by_id(self.raw_ptr, id) };
+    EnvoyGauge {
+      raw_ptr: gauge_ptr,
+      phantom: PhantomData,
+    }
   }
 
   fn define_histogram(&mut self, name: &str) -> EnvoyHistogram<'_> {
     let name_ptr = name.as_ptr();
     let name_size = name.len();
     let histogram_ptr = unsafe {
-      abi::envoy_dynamic_module_callback_metric_define_histogram(
+      abi::envoy_dynamic_module_callback_http_config_define_histogram(
         self.raw_ptr,
         name_ptr as *const _ as *mut _,
         name_size,
@@ -504,22 +509,12 @@ impl EnvoyHttpFilterConfig for EnvoyHttpFilterConfigImpl {
   fn get_histogram_by_id(&self, id: EnvoyHistogramId) -> EnvoyHistogram<'_> {
     let EnvoyHistogramId(id) = id;
     let histogram_ptr = unsafe {
-      abi::envoy_dynamic_module_callback_metric_get_histogram_by_id(self.raw_ptr, id)
+      abi::envoy_dynamic_module_callback_http_config_get_histogram_by_id(self.raw_ptr, id)
     };
-    EnvoyHistogram { raw_ptr: histogram_ptr, phantom: PhantomData }
-  }
-
-  fn get_histogram_by_name<'a>(&'a self, name: &str) -> EnvoyHistogram<'a> {
-    let name_ptr = name.as_ptr();
-    let name_size = name.len();
-    let histogram_ptr = unsafe {
-      abi::envoy_dynamic_module_callback_metric_get_histogram_by_name(
-        self.raw_ptr, 
-        name_ptr as *const _ as *mut _, 
-        name_size,
-      )
-    };
-    EnvoyHistogram { raw_ptr: histogram_ptr, phantom: PhantomData }
+    EnvoyHistogram {
+      raw_ptr: histogram_ptr,
+      phantom: PhantomData,
+    }
   }
 }
 
@@ -615,9 +610,6 @@ impl<'a> EnvoyHistogram<'a> {
 #[automock]
 #[allow(clippy::needless_lifetimes)] // Explicit lifetime specifiers are needed for mockall.
 pub trait EnvoyHttpFilter {
-  /// Get the Envoy http filter config for this filter.
-  fn get_filter_config<'a>(&self) -> &dyn EnvoyHttpFilterConfig;
-
   /// Get the value of the request header with the given key.
   /// If the header is not found, this returns `None`.
   ///
@@ -1011,6 +1003,15 @@ pub trait EnvoyHttpFilter {
   /// }
   /// ```
   fn new_scheduler(&self) -> Box<dyn EnvoyHttpFilterScheduler>;
+
+  /// Gets a previously initialized counter by id.
+  fn get_counter_by_id(&self, id: EnvoyCounterId) -> EnvoyCounter<'_>;
+
+  /// Gets a previously initialized gauge by id.
+  fn get_gauge_by_id(&self, id: EnvoyGaugeId) -> EnvoyGauge<'_>;
+
+  /// Gets a previously initialized histogram by id.
+  fn get_histogram_by_id(&self, id: EnvoyHistogramId) -> EnvoyHistogram<'_>;
 }
 
 /// This implements the [`EnvoyHttpFilter`] trait with the given raw pointer to the Envoy HTTP
@@ -1019,21 +1020,9 @@ pub trait EnvoyHttpFilter {
 /// This is not meant to be used directly.
 pub struct EnvoyHttpFilterImpl {
   raw_ptr: abi::envoy_dynamic_module_type_http_filter_envoy_ptr,
-  filter_config: OnceCell<Box<dyn EnvoyHttpFilterConfig>>,
 }
 
 impl EnvoyHttpFilter for EnvoyHttpFilterImpl {
-  fn get_filter_config<'a>(&'a self) ->  &'a dyn EnvoyHttpFilterConfig {
-    &**self.filter_config.get_or_init(|| {
-      let filter_config_ptr = unsafe {
-        abi::envoy_dynamic_module_callback_get_http_filter_config(self.raw_ptr)
-      };
-      Box::new(EnvoyHttpFilterConfigImpl{
-        raw_ptr:filter_config_ptr
-      })
-    })
-  }
-
   fn get_request_header_value(&self, key: &str) -> Option<EnvoyBuffer> {
     self.get_header_value_impl(
       key,
@@ -1576,11 +1565,46 @@ impl EnvoyHttpFilter for EnvoyHttpFilterImpl {
       })
     }
   }
+
+  fn get_counter_by_id(&self, id: EnvoyCounterId) -> EnvoyCounter<'_> {
+    let EnvoyCounterId(id) = id;
+    let counter_ptr = unsafe {
+      abi::envoy_dynamic_module_callback_http_get_counter_by_id(self.raw_ptr, id)
+    };
+    EnvoyCounter { 
+      raw_ptr: counter_ptr, 
+      phantom: PhantomData,
+    }
+  }
+
+  fn get_gauge_by_id(&self, id: EnvoyGaugeId) -> EnvoyGauge<'_> {
+    let EnvoyGaugeId(id) = id;
+    let gauge_ptr = unsafe {
+      abi::envoy_dynamic_module_callback_http_get_gauge_by_id(self.raw_ptr, id)
+    };
+    EnvoyGauge { 
+      raw_ptr: gauge_ptr, 
+      phantom: PhantomData,
+    }
+  }
+
+  fn get_histogram_by_id(&self, id: EnvoyHistogramId) -> EnvoyHistogram<'_> {
+    let EnvoyHistogramId(id) = id;
+    let histogram_ptr = unsafe {
+      abi::envoy_dynamic_module_callback_http_get_histogram_by_id(self.raw_ptr, id)
+    };
+    EnvoyHistogram {
+      raw_ptr: histogram_ptr,
+      phantom: PhantomData,
+    }
+  }
 }
 
 impl EnvoyHttpFilterImpl {
   fn new(raw_ptr: abi::envoy_dynamic_module_type_http_filter_envoy_ptr) -> Self {
-    Self { raw_ptr, filter_config: OnceCell::new() }
+    Self {
+      raw_ptr,
+    }
   }
 
   /// Implement the common logic for getting all headers/trailers.
@@ -1689,7 +1713,7 @@ impl EnvoyHttpFilterImpl {
     // At this point, we assume at least one value is present.
     results.push(unsafe { EnvoyBuffer::new_from_raw(result_ptr, result_size) });
     // So, we iterate from 1 to counts - 1.
-    for i in 1 .. counts {
+    for i in 1..counts {
       let mut result_ptr: *const u8 = std::ptr::null();
       let mut result_size: usize = 0;
       unsafe {
@@ -1805,20 +1829,36 @@ macro_rules! wrap_into_c_void_ptr {
   }};
 }
 
-/// This macro is used to drop the Box<dyn T> and the underlying object when the C code calls the
+// This macro is used to unwrap the Box<dyn T> to get the underlying object when the C code calls the
 /// destroy function. This is a counterpart to [`wrap_into_c_void_ptr!`].
+/// 
+// Implementation note: this cannot be a function as we need to cast as *mut *mut dyn T which is
+// not feasible via usual function type params.
+macro_rules! unwrap_from_c_void_ptr {
+    ($ptr:expr, $trait_:ident $(< $($args:ident),* >)?) => {{
+      let config = $ptr as *mut *mut dyn $trait_$(< $($args),* >)?; 
+      
+      // Drop the Box<*mut $t> and return Box<$t>.
+      unsafe {
+        let _outer = Box::from_raw(config);
+        let inner = Box::from_raw(*config);
+        inner
+      }
+    }};
+}
+
+/// This macro is used to drop the Box<dyn T> and the underlying object when the C code calls the
+/// destroy function. This is a counterpart to [`wrap_into_c_void_ptr!`] that additionally drops
+/// the underlying object.
 //
 // Implementation note: this cannot be a function as we need to cast as *mut *mut dyn T which is
 // not feasible via usual function type params.
 macro_rules! drop_wrapped_c_void_ptr {
   ($ptr:expr, $trait_:ident $(< $($args:ident),* >)?) => {{
-    let config = $ptr as *mut *mut dyn $trait_$(< $($args),* >)?;
 
-    // Drop the Box<*mut $t>, and then the Box<$t>, which also
-    // drops the underlying object.
-    unsafe {
-      let _outer = Box::from_raw(config);
-      let _inner = Box::from_raw(*config);
+    // Drop the unwrapped inner Box<$t>
+    {
+      let _inner = unwrap_from_c_void_ptr!($ptr, $trait_$(< $($args),* >)?);
     }
   }};
 }
@@ -1839,9 +1879,17 @@ fn envoy_dynamic_module_on_http_filter_config_new_impl(
 #[no_mangle]
 unsafe extern "C" fn envoy_dynamic_module_on_http_filter_config_destroy(
   config_ptr: abi::envoy_dynamic_module_type_http_filter_config_module_ptr,
+  envoy_filter_config_ptr: abi::envoy_dynamic_module_type_http_filter_config_envoy_ptr,
 ) {
-  drop_wrapped_c_void_ptr!(config_ptr,
-    HttpFilterConfig<EnvoyHttpFilterConfigImpl,EnvoyHttpFilterImpl>);
+  let mut envoy_filter_config = EnvoyHttpFilterConfigImpl {
+    raw_ptr: envoy_filter_config_ptr,
+  };
+
+  let config = unwrap_from_c_void_ptr!(config_ptr,
+    HttpFilterConfig<EnvoyHttpFilterImpl>);
+  if let Some(destroy_fn) = DESTROY_HTTP_FILTER_CONFIG_FUNCTION.get() {
+    destroy_fn(&mut envoy_filter_config, config);
+  }
 }
 
 #[no_mangle]
@@ -1900,22 +1948,22 @@ unsafe extern "C" fn envoy_dynamic_module_on_http_filter_new(
   filter_config_ptr: abi::envoy_dynamic_module_type_http_filter_config_module_ptr,
   filter_envoy_ptr: abi::envoy_dynamic_module_type_http_filter_envoy_ptr,
 ) -> abi::envoy_dynamic_module_type_http_filter_module_ptr {
-  let mut envoy_filter_config = EnvoyHttpFilterConfigImpl {
+  let mut envoy_filter = EnvoyHttpFilterImpl {
     raw_ptr: filter_envoy_ptr,
   };
   let filter_config = {
     let raw = filter_config_ptr
-      as *mut *mut dyn HttpFilterConfig<EnvoyHttpFilterConfigImpl, EnvoyHttpFilterImpl>;
+      as *mut *mut dyn HttpFilterConfig<EnvoyHttpFilterImpl>;
     &mut **raw
   };
-  envoy_dynamic_module_on_http_filter_new_impl(&mut envoy_filter_config, filter_config)
+  envoy_dynamic_module_on_http_filter_new_impl(&mut envoy_filter, filter_config)
 }
 
 fn envoy_dynamic_module_on_http_filter_new_impl(
-  envoy_filter_config: &mut EnvoyHttpFilterConfigImpl,
-  filter_config: &mut dyn HttpFilterConfig<EnvoyHttpFilterConfigImpl, EnvoyHttpFilterImpl>,
+  envoy_filter: &mut EnvoyHttpFilterImpl,
+  filter_config: &mut dyn HttpFilterConfig<EnvoyHttpFilterImpl>,
 ) -> abi::envoy_dynamic_module_type_http_filter_module_ptr {
-  let filter = filter_config.new_http_filter(envoy_filter_config);
+  let filter = filter_config.new_http_filter(envoy_filter);
   wrap_into_c_void_ptr!(filter)
 }
 

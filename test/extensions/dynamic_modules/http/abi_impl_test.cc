@@ -1096,7 +1096,7 @@ TEST(ABIImpl, Stats) {
 
   const std::string counter_name{"some_counter"};
   envoy_dynamic_module_type_metric_counter_envoy_ptr counter_ptr =
-      envoy_dynamic_module_callback_metric_define_counter(
+      envoy_dynamic_module_callback_http_config_define_counter(
           &filter_config, const_cast<char*>(counter_name.data()), counter_name.size());
   Stats::CounterOptConstRef counter =
       stats_store.findCounterByString("dynamicmodulescustom.some_counter");
@@ -1109,7 +1109,7 @@ TEST(ABIImpl, Stats) {
 
   const std::string gauge_name{"some_gauge"};
   envoy_dynamic_module_type_metric_gauge_envoy_ptr gauge_ptr =
-      envoy_dynamic_module_callback_metric_define_gauge(
+      envoy_dynamic_module_callback_http_config_define_gauge(
           &filter_config, const_cast<char*>(gauge_name.data()), gauge_name.size());
   Stats::GaugeOptConstRef gauge = stats_store.findGaugeByString("dynamicmodulescustom.some_gauge");
   EXPECT_TRUE(gauge.has_value());
@@ -1125,7 +1125,7 @@ TEST(ABIImpl, Stats) {
 
   const std::string histogram_name{"some_histogram"};
   envoy_dynamic_module_type_metric_histogram_envoy_ptr histogram_ptr =
-      envoy_dynamic_module_callback_metric_define_histogram(
+      envoy_dynamic_module_callback_http_config_define_histogram(
           &filter_config, const_cast<char*>(histogram_name.data()), histogram_name.size());
   Stats::HistogramOptConstRef histogram =
       stats_store.findHistogramByString("dynamicmodulescustom.some_histogram");
@@ -1143,21 +1143,21 @@ TEST(ABIImpl, Stats) {
 
   const std::string frozen_counter_name{"frozen_counter"};
   envoy_dynamic_module_type_metric_counter_envoy_ptr frozen_counter_ptr =
-      envoy_dynamic_module_callback_metric_define_counter(
+      envoy_dynamic_module_callback_http_config_define_counter(
           &filter_config, const_cast<char*>(frozen_counter_name.data()), frozen_counter_name.size());
   EXPECT_EQ(frozen_counter_ptr, nullptr);
   EXPECT_FALSE(stats_store.findCounterByString("dynamicmodulescustom.frozen_counter").has_value());
 
   const std::string frozen_gauge_name{"frozen_gauge"};
   envoy_dynamic_module_type_metric_gauge_envoy_ptr frozen_gauge_ptr =
-      envoy_dynamic_module_callback_metric_define_gauge(
+      envoy_dynamic_module_callback_http_config_define_gauge(
           &filter_config, const_cast<char*>(frozen_gauge_name.data()), frozen_gauge_name.size());
   EXPECT_EQ(frozen_gauge_ptr, nullptr);
   EXPECT_FALSE(stats_store.findGaugeByString("dynamicmodulescustom.frozen_gauge").has_value());
 
   const std::string frozen_histogram_name{"frozen_histogram"};
   envoy_dynamic_module_type_metric_histogram_envoy_ptr frozen_histogram_ptr =
-      envoy_dynamic_module_callback_metric_define_histogram(
+      envoy_dynamic_module_callback_http_config_define_histogram(
           &filter_config, const_cast<char*>(frozen_histogram_name.data()), frozen_histogram_name.size());
   EXPECT_EQ(frozen_histogram_ptr, nullptr);
   EXPECT_FALSE(stats_store.findHistogramByString("dynamicmodulescustom.frozen_histogram").has_value());
