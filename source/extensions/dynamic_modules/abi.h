@@ -878,6 +878,97 @@ size_t envoy_dynamic_module_callback_http_filter_config_define_histogram(
 void envoy_dynamic_module_callback_http_filter_record_histogram_value(
     envoy_dynamic_module_type_http_filter_envoy_ptr filter_envoy_ptr, size_t id, uint64_t value);
 
+/**
+ * envoy_dynamic_module_callback_http_filter_config_define_scope is called by the module during
+ * initialization to create a new Stats::Scope with the given name.
+ *
+ * @param filter_config_envoy_ptr is the pointer to the DynamicModuleHttpFilterConfig in which the
+ * scope will be defined.
+ * @param name is the name of the scope to be defined.
+ * @param name_length is the length of the name.
+ * @return an opaque ID that represents a unique scope. This can be passed to
+ * envoy_dynamic_module_callback_http_filter_increment_scope together with filter_envoy_ptr
+ * created from filter_config_envoy_ptr.
+ */
+size_t envoy_dynamic_module_callback_http_filter_config_define_scope(
+    envoy_dynamic_module_type_http_filter_config_envoy_ptr filter_config_envoy_ptr,
+    envoy_dynamic_module_type_buffer_module_ptr name, size_t name_length);
+
+/**
+ * envoy_dynamic_module_callback_http_filter_increment_scoped_counter is called by the module to
+ * increment a counter in a previously defined scope.
+ *
+ * @param filter_envoy_ptr is the pointer to the DynamicModuleHttpFilter object.
+ * @param id is the ID of the scope previously defined using the config that created
+ * filter_envoy_ptr
+ * @param name is the name of the counter to be incremented.
+ * @param name_length is the length of the name.
+ * @param value is the value to increment the scoped counter by.
+ */
+void envoy_dynamic_module_callback_http_filter_increment_scoped_counter(
+    envoy_dynamic_module_type_http_filter_envoy_ptr filter_envoy_ptr, size_t id,
+    envoy_dynamic_module_type_buffer_module_ptr name, size_t name_length, uint64_t value);
+
+/**
+ * envoy_dynamic_module_callback_http_filter_increase_scoped_gauge is called by the module to
+ * increment a gauge in a previously defined scope.
+ *
+ * @param filter_envoy_ptr is the pointer to the DynamicModuleHttpFilter object.
+ * @param id is the ID of the scope previously defined using the config that created
+ * filter_envoy_ptr
+ * @param name is the name of the gauge to be incremented.
+ * @param name_length is the length of the name.
+ * @param value is the value to increment the scoped gauge by.
+ */
+void envoy_dynamic_module_callback_http_filter_increase_scoped_gauge(
+    envoy_dynamic_module_type_http_filter_envoy_ptr filter_envoy_ptr, size_t id,
+    envoy_dynamic_module_type_buffer_module_ptr name, size_t name_length, uint64_t value);
+
+/**
+ * envoy_dynamic_module_callback_http_filter_decrease_scoped_gauge is called by the module to
+ * decrease a gauge in a previously defined scope.
+ *
+ * @param filter_envoy_ptr is the pointer to the DynamicModuleHttpFilter object.
+ * @param id is the ID of the scope previously defined using the config that created
+ * filter_envoy_ptr
+ * @param name is the name of the gauge to be decreased.
+ * @param name_length is the length of the name.
+ * @param value is the value to decrease the scoped gauge by.
+ */
+void envoy_dynamic_module_callback_http_filter_decrease_scoped_gauge(
+    envoy_dynamic_module_type_http_filter_envoy_ptr filter_envoy_ptr, size_t id,
+    envoy_dynamic_module_type_buffer_module_ptr name, size_t name_length, uint64_t value);
+
+/**
+ * envoy_dynamic_module_callback_http_filter_set_scoped_gauge is called by the module to set the
+ * value of a gauge in a previously defined scope.
+ *
+ * @param filter_envoy_ptr is the pointer to the DynamicModuleHttpFilter object.
+ * @param id is the ID of the scope previously defined using the config that created
+ * filter_envoy_ptr
+ * @param name is the name of the gauge to be set.
+ * @param name_length is the length of the name.
+ * @param value is the value to set the scoped gauge to.
+ */
+void envoy_dynamic_module_callback_http_filter_set_scoped_gauge(
+    envoy_dynamic_module_type_http_filter_envoy_ptr filter_envoy_ptr, size_t id,
+    envoy_dynamic_module_type_buffer_module_ptr name, size_t name_length, uint64_t value);
+
+/**
+ * envoy_dynamic_module_callback_http_filter_record_scoped_histogram_value is called by the module
+ * to record a value in a previously defined histogram in a previously defined scope.
+ *
+ * @param filter_envoy_ptr is the pointer to the DynamicModuleHttpFilter object.
+ * @param id is the ID of the scope previously defined using the config that created
+ * filter_envoy_ptr
+ * @param name is the name of the histogram to be recorded.
+ * @param name_length is the length of the name.
+ * @param value is the value to record in the scoped histogram.
+ */
+void envoy_dynamic_module_callback_http_filter_record_scoped_histogram_value(
+    envoy_dynamic_module_type_http_filter_envoy_ptr filter_envoy_ptr, size_t id,
+    envoy_dynamic_module_type_buffer_module_ptr name, size_t name_length, uint64_t value);
+
 // ---------------------- HTTP Header/Trailer callbacks ------------------------
 
 /**

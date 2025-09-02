@@ -16,7 +16,7 @@ namespace HttpFilters {
 class DynamicModuleHttpFilterTest : public testing::Test {
 public:
   void SetUp() override {
-    filter_ = std::make_unique<DynamicModuleHttpFilter>(nullptr);
+    filter_ = std::make_unique<DynamicModuleHttpFilter>(nullptr, symbol_table_);
     filter_->setDecoderFilterCallbacks(decoder_callbacks_);
     filter_->setEncoderFilterCallbacks(encoder_callbacks_);
   }
@@ -28,6 +28,7 @@ public:
   Http::TestResponseHeaderMapImpl response_headers_;
   Http::TestResponseTrailerMapImpl response_trailers_;
   std::unique_ptr<DynamicModuleHttpFilter> filter_;
+  Stats::SymbolTableImpl symbol_table_;
 };
 
 // Parameterized test for get_header_value
@@ -423,7 +424,8 @@ TEST_F(DynamicModuleHttpFilterTest, SendResponseWithBody) {
 }
 
 TEST(ABIImpl, metadata) {
-  DynamicModuleHttpFilter filter{nullptr};
+  Stats::SymbolTableImpl symbol_table;
+  DynamicModuleHttpFilter filter{nullptr, symbol_table};
   const std::string namespace_str = "foo";
   const std::string key_str = "key";
   envoy_dynamic_module_type_buffer_module_ptr namespace_ptr =
@@ -546,7 +548,8 @@ TEST(ABIImpl, metadata) {
 }
 
 TEST(ABIImpl, filter_state) {
-  DynamicModuleHttpFilter filter{nullptr};
+  Stats::SymbolTableImpl symbol_table;
+  DynamicModuleHttpFilter filter{nullptr, symbol_table};
   const std::string key_str = "key";
   envoy_dynamic_module_type_buffer_module_ptr key_ptr = const_cast<char*>(key_str.data());
   size_t key_length = key_str.size();
@@ -595,7 +598,8 @@ bufferVectorToString(const std::vector<envoy_dynamic_module_type_envoy_buffer>& 
 }
 
 TEST(ABIImpl, RequestBody) {
-  DynamicModuleHttpFilter filter{nullptr};
+  Stats::SymbolTableImpl symbol_table;
+  DynamicModuleHttpFilter filter{nullptr, symbol_table};
   Http::MockStreamDecoderFilterCallbacks callbacks;
   StreamInfo::MockStreamInfo stream_info;
   EXPECT_CALL(callbacks, streamInfo()).WillRepeatedly(testing::ReturnRef(stream_info));
@@ -668,7 +672,8 @@ TEST(ABIImpl, RequestBody) {
 }
 
 TEST(ABIImpl, ResponseBody) {
-  DynamicModuleHttpFilter filter{nullptr};
+  Stats::SymbolTableImpl symbol_table;
+  DynamicModuleHttpFilter filter{nullptr, symbol_table};
   Http::MockStreamEncoderFilterCallbacks callbacks;
   StreamInfo::MockStreamInfo stream_info;
   EXPECT_CALL(callbacks, streamInfo()).WillRepeatedly(testing::ReturnRef(stream_info));
@@ -751,7 +756,8 @@ TEST(ABIImpl, ResponseBody) {
 }
 
 TEST(ABIImpl, ClearRouteCache) {
-  DynamicModuleHttpFilter filter{nullptr};
+  Stats::SymbolTableImpl symbol_table;
+  DynamicModuleHttpFilter filter{nullptr, symbol_table};
   Http::MockStreamDecoderFilterCallbacks callbacks;
   StreamInfo::MockStreamInfo stream_info;
   EXPECT_CALL(callbacks, streamInfo()).WillRepeatedly(testing::ReturnRef(stream_info));
@@ -764,8 +770,9 @@ TEST(ABIImpl, ClearRouteCache) {
 }
 
 TEST(ABIImpl, GetAttributes) {
-  DynamicModuleHttpFilter filter_without_callbacks{nullptr};
-  DynamicModuleHttpFilter filter{nullptr};
+  Stats::SymbolTableImpl symbol_table;
+  DynamicModuleHttpFilter filter_without_callbacks{nullptr, symbol_table};
+  DynamicModuleHttpFilter filter{nullptr, symbol_table};
   Http::MockStreamDecoderFilterCallbacks callbacks;
   StreamInfo::MockStreamInfo stream_info;
   EXPECT_CALL(callbacks, streamInfo()).WillRepeatedly(testing::ReturnRef(stream_info));
@@ -1054,7 +1061,8 @@ TEST(ABIImpl, GetAttributes) {
 }
 
 TEST(ABIImpl, HttpCallout) {
-  DynamicModuleHttpFilter filter{nullptr};
+  Stats::SymbolTableImpl symbol_table;
+  DynamicModuleHttpFilter filter{nullptr, symbol_table};
   const std::string cluster{"some_cluster"};
   EXPECT_EQ(envoy_dynamic_module_callback_http_filter_http_callout(
                 &filter, 1, const_cast<char*>(cluster.data()), cluster.size(), nullptr, 0, nullptr,
@@ -1088,12 +1096,13 @@ TEST(ABIImpl, Log) {
 }
 
 TEST(ABIImpl, Stats) {
+  Stats::SymbolTableImpl symbol_table;
   Stats::TestUtil::TestStore stats_store;
   Stats::TestUtil::TestScope stats_scope{"", stats_store};
   NiceMock<Server::Configuration::MockServerFactoryContext> context;
   auto filter_config = std::make_shared<DynamicModuleHttpFilterConfig>(
       "some_name", "some_config", nullptr, stats_scope, context);
-  DynamicModuleHttpFilter filter{filter_config};
+  DynamicModuleHttpFilter filter{filter_config, symbol_table};
 
   const std::string counter_name{"some_counter"};
   size_t counter_id = envoy_dynamic_module_callback_http_filter_config_define_counter(

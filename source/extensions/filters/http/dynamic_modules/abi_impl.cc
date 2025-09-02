@@ -148,6 +148,74 @@ void envoy_dynamic_module_callback_http_filter_record_histogram_value(
   hist.recordValue(value);
 }
 
+size_t envoy_dynamic_module_callback_http_filter_config_define_scope(
+    envoy_dynamic_module_type_http_filter_config_envoy_ptr filter_config_envoy_ptr,
+    envoy_dynamic_module_type_buffer_module_ptr name, size_t name_length) {
+  auto filter_config = static_cast<DynamicModuleHttpFilterConfig*>(filter_config_envoy_ptr);
+  ASSERT(!filter_config->stat_creation_frozen_);
+  absl::string_view name_view(name, name_length);
+  Stats::StatNameManagedStorage storage(name_view, filter_config->stats_scope_->symbolTable());
+  Stats::StatName stat_name = storage.statName();
+  Stats::ScopeSharedPtr s = Stats::Utility::scopeFromStatNames(
+      *filter_config->stats_scope_, {filter_config->custom_stat_namespace_, stat_name});
+  return filter_config->addScope(std::move(s));
+}
+
+void envoy_dynamic_module_callback_http_filter_increment_scoped_counter(
+    envoy_dynamic_module_type_http_filter_envoy_ptr filter_envoy_ptr, size_t id,
+    envoy_dynamic_module_type_buffer_module_ptr name, size_t name_length, uint64_t value) {
+  auto filter = static_cast<DynamicModuleHttpFilter*>(filter_envoy_ptr);
+  auto& scope = filter->getFilterConfig().getScopeById(id);
+  absl::string_view name_view(name, name_length);
+  auto& counter = scope.counterFromStatName(filter->getStatNamePool().add(name_view));
+  return counter.add(value);
+}
+
+void envoy_dynamic_module_callback_http_filter_increase_scoped_gauge(
+    envoy_dynamic_module_type_http_filter_envoy_ptr filter_envoy_ptr, size_t id,
+    envoy_dynamic_module_type_buffer_module_ptr name, size_t name_length, uint64_t value) {
+  auto filter = static_cast<DynamicModuleHttpFilter*>(filter_envoy_ptr);
+  auto& scope = filter->getFilterConfig().getScopeById(id);
+  absl::string_view name_view(name, name_length);
+  auto& gauge = scope.gaugeFromStatName(filter->getStatNamePool().add(name_view),
+                                        Stats::Gauge::ImportMode::Accumulate);
+  return gauge.add(value);
+}
+
+void envoy_dynamic_module_callback_http_filter_decrease_scoped_gauge(
+    envoy_dynamic_module_type_http_filter_envoy_ptr filter_envoy_ptr, size_t id,
+    envoy_dynamic_module_type_buffer_module_ptr name, size_t name_length, uint64_t value) {
+  auto filter = static_cast<DynamicModuleHttpFilter*>(filter_envoy_ptr);
+  auto& scope = filter->getFilterConfig().getScopeById(id);
+  absl::string_view name_view(name, name_length);
+  auto& gauge = scope.gaugeFromStatName(filter->getStatNamePool().add(name_view),
+                                        Stats::Gauge::ImportMode::Accumulate);
+  return gauge.sub(value);
+}
+
+void envoy_dynamic_module_callback_http_filter_set_scoped_gauge(
+    envoy_dynamic_module_type_http_filter_envoy_ptr filter_envoy_ptr, size_t id,
+    envoy_dynamic_module_type_buffer_module_ptr name, size_t name_length, uint64_t value) {
+  auto filter = static_cast<DynamicModuleHttpFilter*>(filter_envoy_ptr);
+  auto& scope = filter->getFilterConfig().getScopeById(id);
+  absl::string_view name_view(name, name_length);
+  auto& gauge = scope.gaugeFromStatName(filter->getStatNamePool().add(name_view),
+                                        Stats::Gauge::ImportMode::Accumulate);
+  return gauge.set(value);
+}
+
+void envoy_dynamic_module_callback_http_filter_record_scoped_histogram_value(
+    envoy_dynamic_module_type_http_filter_envoy_ptr filter_envoy_ptr, size_t id,
+    envoy_dynamic_module_type_buffer_module_ptr name, size_t name_length, uint64_t value) {
+  auto filter = static_cast<DynamicModuleHttpFilter*>(filter_envoy_ptr);
+  auto& scope = filter->getFilterConfig().getScopeById(id);
+  absl::string_view name_view(name, name_length);
+  auto& hist = scope.histogramFromStatName(
+      filter->getStatNamePool().add(name_view),
+      Stats::Histogram::Unit::Unspecified); // TODO should we allow callers to specify this?
+  hist.recordValue(value);
+}
+
 size_t envoy_dynamic_module_callback_http_get_request_header(
     envoy_dynamic_module_type_http_filter_envoy_ptr filter_envoy_ptr,
     envoy_dynamic_module_type_buffer_module_ptr key, size_t key_length,

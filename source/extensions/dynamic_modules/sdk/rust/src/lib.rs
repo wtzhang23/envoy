@@ -377,6 +377,9 @@ pub trait EnvoyHttpFilterConfig {
 
   /// Define a new histogram scoped to this filter config with the given name.
   fn define_histogram(&mut self, name: &str) -> EnvoyHistogramId;
+
+  /// Define a new stats scope scoped to this filter config with the given name.
+  fn define_scope(&mut self, name: &str) -> EnvoyScopeId;
 }
 
 pub struct EnvoyHttpFilterConfigImpl {
@@ -422,6 +425,19 @@ impl EnvoyHttpFilterConfig for EnvoyHttpFilterConfigImpl {
     };
     EnvoyHistogramId(id)
   }
+
+  fn define_scope(&mut self, name: &str) -> EnvoyScopeId {
+    let name_ptr = name.as_ptr();
+    let name_size = name.len();
+    let id = unsafe {
+      abi::envoy_dynamic_module_callback_http_filter_config_define_scope(
+        self.raw_ptr,
+        name_ptr as *const _ as *mut _,
+        name_size,
+      )
+    };
+    EnvoyScopeId(id)
+  }
 }
 
 /// The identifier for an EnvoyCounter.
@@ -435,6 +451,10 @@ pub struct EnvoyGaugeId(usize);
 /// The identifier for an EnvoyHistogram.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct EnvoyHistogramId(usize);
+
+/// The identifier for an EnvoyScope.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct EnvoyScopeId(usize);
 
 /// An opaque object that represents the underlying Envoy Http filter. This has one to one
 /// mapping with the Envoy Http filter object as well as [`HttpFilter`] object per HTTP stream.
@@ -852,6 +872,21 @@ pub trait EnvoyHttpFilter {
 
   /// Record a value in the histogram with the given id.
   fn record_histogram_value(&self, id: EnvoyHistogramId, value: u64);
+
+  /// Increment a counter under the scope with the given id.
+  fn increment_scoped_counter(&self, id: EnvoyScopeId, counter_name: &str, value: u64);
+
+  /// Increase a gauge under the scope with the given id.
+  fn increase_scoped_gauge(&self, id: EnvoyScopeId, gauge_name: &str, value: u64);
+
+  /// Decrease a gauge under the scope with the given id.
+  fn decrease_scoped_gauge(&self, id: EnvoyScopeId, gauge_name: &str, value: u64);
+
+  /// Set a gauge under the scope with the given id.
+  fn set_scoped_gauge(&self, id: EnvoyScopeId, gauge_name: &str, value: u64);
+
+  /// Record a value in the histogram under the scope with the given id.
+  fn record_scoped_histogram_value(&self, id: EnvoyScopeId, histogram_name: &str, value: u64);
 }
 
 /// This implements the [`EnvoyHttpFilter`] trait with the given raw pointer to the Envoy HTTP
@@ -1440,6 +1475,71 @@ impl EnvoyHttpFilter for EnvoyHttpFilterImpl {
       abi::envoy_dynamic_module_callback_http_filter_record_histogram_value(
         self.raw_ptr,
         id,
+        value,
+      );
+    }
+  }
+
+  fn increment_scoped_counter(&self, id: EnvoyScopeId, counter_name: &str, value: u64) {
+    let EnvoyScopeId(id) = id;
+    unsafe {
+      abi::envoy_dynamic_module_callback_http_filter_increment_scoped_counter(
+        self.raw_ptr,
+        id,
+        counter_name.as_ptr() as *const _ as *mut _,
+        counter_name.len(),
+        value,
+      );
+    }
+  }
+
+  fn increase_scoped_gauge(&self, id: EnvoyScopeId, gauge_name: &str, value: u64) {
+    let EnvoyScopeId(id) = id;
+    unsafe {
+      abi::envoy_dynamic_module_callback_http_filter_increase_scoped_gauge(
+        self.raw_ptr,
+        id,
+        gauge_name.as_ptr() as *const _ as *mut _,
+        gauge_name.len(),
+        value,
+      );
+    }
+  }
+
+  fn decrease_scoped_gauge(&self, id: EnvoyScopeId, gauge_name: &str, value: u64) {
+    let EnvoyScopeId(id) = id;
+    unsafe {
+      abi::envoy_dynamic_module_callback_http_filter_decrease_scoped_gauge(
+        self.raw_ptr,
+        id,
+        gauge_name.as_ptr() as *const _ as *mut _,
+        gauge_name.len(),
+        value,
+      );
+    }
+  }
+
+  fn set_scoped_gauge(&self, id: EnvoyScopeId, gauge_name: &str, value: u64) {
+    let EnvoyScopeId(id) = id;
+    unsafe {
+      abi::envoy_dynamic_module_callback_http_filter_set_scoped_gauge(
+        self.raw_ptr,
+        id,
+        gauge_name.as_ptr() as *const _ as *mut _,
+        gauge_name.len(),
+        value,
+      );
+    }
+  }
+
+  fn record_scoped_histogram_value(&self, id: EnvoyScopeId, histogram_name: &str, value: u64) {
+    let EnvoyScopeId(id) = id;
+    unsafe {
+      abi::envoy_dynamic_module_callback_http_filter_record_scoped_histogram_value(
+        self.raw_ptr,
+        id,
+        histogram_name.as_ptr() as *const _ as *mut _,
+        histogram_name.len(),
         value,
       );
     }

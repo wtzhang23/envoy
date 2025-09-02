@@ -40,10 +40,13 @@ absl::StatusOr<Http::FilterFactoryCb> DynamicModuleConfigFactory::createFilterFa
   context.api().customStatNamespaces().registerStatNamespace(
       Extensions::DynamicModules::HttpFilters::CustomStatNamespace);
 
-  return [config = filter_config.value()](Http::FilterChainFactoryCallbacks& callbacks) -> void {
+  return [config = filter_config.value(),
+          &context](Http::FilterChainFactoryCallbacks& callbacks) -> void {
+    auto& symbol_table = context.scope().symbolTable(); // Create a new symbol table to use per
+                                                        // filter instance for dynamic stat names
     auto filter =
         std::make_shared<Envoy::Extensions::DynamicModules::HttpFilters::DynamicModuleHttpFilter>(
-            config);
+            config, symbol_table);
     filter->initializeInModuleFilter();
     callbacks.addStreamFilter(filter);
   };

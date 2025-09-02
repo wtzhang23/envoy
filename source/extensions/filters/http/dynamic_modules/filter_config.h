@@ -119,6 +119,17 @@ public:
     return hists_[id];
   }
 
+  size_t addScope(Stats::ScopeSharedPtr scope) {
+    size_t id = scopes_.size();
+    scopes_.push_back(scope);
+    return id;
+  }
+
+  Stats::Scope& getScopeById(size_t id) const {
+    ASSERT(id < scopes_.size());
+    return *scopes_[id];
+  }
+
 private:
   // The name of the filter passed in the constructor.
   const std::string filter_name_;
@@ -130,6 +141,7 @@ private:
   std::vector<std::reference_wrapper<Stats::Counter>> counters_;
   std::vector<std::reference_wrapper<Stats::Gauge>> gauges_;
   std::vector<std::reference_wrapper<Stats::Histogram>> hists_;
+  std::vector<Stats::ScopeSharedPtr> scopes_;
 
   // The handle for the module.
   Extensions::DynamicModules::DynamicModulePtr dynamic_module_;
